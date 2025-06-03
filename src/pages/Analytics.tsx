@@ -10,7 +10,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { TrendingUp, TrendingDown, DollarSign, Calendar, Target, PieChart as PieChartIcon } from 'lucide-react';
 
 const Analytics: React.FC = () => {
-  const { transactions, financialSummary } = useFinance();
+  const { transactions, summary } = useFinance();
   const [timeRange, setTimeRange] = useState('thisMonth');
 
   const formatCurrency = (amount: number) => {
@@ -100,16 +100,16 @@ const Analytics: React.FC = () => {
                     <div>
                       <p className="text-sm text-gray-600 dark:text-gray-300">Bilancio Totale</p>
                       <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                        {formatCurrency(financialSummary.balance)}
+                        {formatCurrency(summary.balance)}
                       </p>
                       <div className="flex items-center mt-1">
-                        {financialSummary.monthlyTrend === 'up' ? (
+                        {summary.monthlyTrend === 'up' ? (
                           <TrendingUp className="w-4 h-4 text-success mr-1" />
                         ) : (
                           <TrendingDown className="w-4 h-4 text-expense mr-1" />
                         )}
-                        <span className={`text-sm ${financialSummary.monthlyTrend === 'up' ? 'text-success' : 'text-expense'}`}>
-                          {financialSummary.monthlyTrend === 'up' ? '📈' : '📉'} vs mese scorso
+                        <span className={`text-sm ${summary.monthlyTrend === 'up' ? 'text-success' : 'text-expense'}`}>
+                          {summary.monthlyTrend === 'up' ? '📈' : '📉'} vs mese scorso
                         </span>
                       </div>
                     </div>
@@ -124,7 +124,7 @@ const Analytics: React.FC = () => {
                     <div>
                       <p className="text-sm text-gray-600 dark:text-gray-300">Entrate Mensili</p>
                       <p className="text-2xl font-bold text-success">
-                        {formatCurrency(financialSummary.totalIncome)}
+                        {formatCurrency(summary.totalIncome)}
                       </p>
                       <p className="text-sm text-gray-500 mt-1">📈 +5.2% questo mese</p>
                     </div>
@@ -139,7 +139,7 @@ const Analytics: React.FC = () => {
                     <div>
                       <p className="text-sm text-gray-600 dark:text-gray-300">Uscite Mensili</p>
                       <p className="text-2xl font-bold text-expense">
-                        {formatCurrency(financialSummary.totalExpenses)}
+                        {formatCurrency(summary.totalExpenses)}
                       </p>
                       <p className="text-sm text-gray-500 mt-1">📉 -2.1% questo mese</p>
                     </div>
@@ -154,7 +154,7 @@ const Analytics: React.FC = () => {
                     <div>
                       <p className="text-sm text-gray-600 dark:text-gray-300">Tasso di Risparmio</p>
                       <p className="text-2xl font-bold text-finance-green">
-                        {((financialSummary.totalIncome - financialSummary.totalExpenses) / financialSummary.totalIncome * 100).toFixed(1)}%
+                        {((summary.totalIncome - summary.totalExpenses) / summary.totalIncome * 100).toFixed(1)}%
                       </p>
                       <p className="text-sm text-gray-500 mt-1">🎯 Obiettivo: 20%</p>
                     </div>
