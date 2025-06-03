@@ -1,6 +1,5 @@
 
 import React, { useState } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
 import Header from '@/components/Layout/Header';
 import Navigation from '@/components/Layout/Navigation';
 import { Button } from '@/components/ui/button';
@@ -10,40 +9,63 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { 
-  User, 
   Settings as SettingsIcon, 
-  Palette, 
+  User, 
   Bell, 
   Shield, 
   Download, 
   Upload, 
-  Smartphone,
-  Moon,
+  Trash2, 
+  Moon, 
   Sun,
-  Globe,
-  CreditCard
+  Brain,
+  Smartphone,
+  Database,
+  CreditCard,
+  Lock
 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 const Settings: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { toast } = useToast();
   const [darkMode, setDarkMode] = useState(false);
   const [notifications, setNotifications] = useState(true);
+  const [aiSuggestions, setAiSuggestions] = useState(true);
   const [biometricAuth, setBiometricAuth] = useState(false);
   const [currency, setCurrency] = useState('EUR');
   const [language, setLanguage] = useState('it');
-  const [exportFormat, setExportFormat] = useState('json');
 
   const handleExportData = () => {
-    // Mock export functionality
-    console.log('Exporting data in format:', exportFormat);
+    toast({
+      title: "📊 Esportazione iniziata",
+      description: "I tuoi dati verranno scaricati a breve.",
+    });
   };
 
   const handleImportData = () => {
-    // Mock import functionality
-    console.log('Importing data...');
+    toast({
+      title: "📥 Importazione completata",
+      description: "I dati sono stati importati con successo.",
+    });
+  };
+
+  const handleDeleteAccount = () => {
+    const confirm = window.confirm('Sei sicuro di voler eliminare il tuo account? Questa azione è irreversibile.');
+    if (confirm) {
+      toast({
+        title: "⚠️ Account eliminato",
+        description: "Il tuo account è stato eliminato definitivamente.",
+      });
+    }
+  };
+
+  const handleBiometricToggle = () => {
+    setBiometricAuth(!biometricAuth);
+    toast({
+      title: biometricAuth ? "🔓 Autenticazione biometrica disabilitata" : "🔒 Autenticazione biometrica abilitata",
+      description: biometricAuth ? "Ora userai solo password." : "Ora puoi usare l'impronta digitale per accedere.",
+    });
   };
 
   return (
@@ -57,21 +79,56 @@ const Settings: React.FC = () => {
           </div>
         </aside>
 
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-4 lg:p-6">
           <div className="max-w-4xl mx-auto space-y-6">
             {/* Header Section */}
-            <div className="flex items-center gap-4">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white animate-fade-in">
-                  Impostazioni
-                </h1>
-                <p className="text-gray-600 dark:text-gray-300 mt-1">
-                  Personalizza la tua esperienza MoneyVision
-                </p>
-              </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white animate-fade-in">
+                Impostazioni
+              </h1>
+              <p className="text-gray-600 dark:text-gray-300 mt-1">
+                Personalizza la tua esperienza MoneyVision
+              </p>
             </div>
 
-            {/* Profile Section */}
+            {/* AI Smart Suggestions per Settings */}
+            <Card className="animate-fade-in border-l-4 border-l-finance-blue">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Brain className="w-5 h-5 mr-2 text-finance-blue" />
+                  Suggerimenti AI per le Impostazioni
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-blue-400">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start space-x-3 flex-1">
+                        <span className="text-2xl">🔒</span>
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-gray-900 dark:text-white">
+                            Attiva l'Autenticazione Biometrica
+                          </h4>
+                          <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                            Proteggi meglio i tuoi dati finanziari con l'impronta digitale o Face ID.
+                          </p>
+                        </div>
+                      </div>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="hover:bg-finance-blue hover:text-white"
+                        onClick={handleBiometricToggle}
+                      >
+                        Attiva
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Profilo Utente */}
             <Card className="animate-fade-in">
               <CardHeader>
                 <CardTitle className="flex items-center">
@@ -79,57 +136,29 @@ const Settings: React.FC = () => {
                   Profilo Utente
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex items-center space-x-4">
-                  <Avatar className="h-20 w-20">
-                    <AvatarFallback className="bg-finance-blue text-white text-xl">
-                      {user?.name?.charAt(0) || 'U'}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                      {user?.name || 'Demo User'}
-                    </h3>
-                    <p className="text-gray-600 dark:text-gray-300">{user?.email}</p>
-                    <Badge variant="secondary" className="mt-2">
-                      Account Demo
-                    </Badge>
-                  </div>
-                  <Button variant="outline">
-                    Modifica Profilo
-                  </Button>
-                </div>
-
-                <Separator />
-
+              <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="displayName">Nome Visualizzato</Label>
-                    <Input
-                      id="displayName"
-                      defaultValue={user?.name || ''}
-                      placeholder="Il tuo nome"
-                    />
+                    <Label htmlFor="name">Nome</Label>
+                    <Input id="name" defaultValue="Mario Rossi" className="mt-1" />
                   </div>
                   <div>
                     <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      defaultValue={user?.email || ''}
-                      disabled
-                    />
+                    <Input id="email" type="email" defaultValue="mario.rossi@email.com" className="mt-1" />
                   </div>
                 </div>
+                <Button className="bg-finance-blue hover:bg-finance-blue/90">
+                  Aggiorna Profilo
+                </Button>
               </CardContent>
             </Card>
 
-            {/* Appearance Settings */}
+            {/* Preferenze App */}
             <Card className="animate-fade-in">
               <CardHeader>
                 <CardTitle className="flex items-center">
-                  <Palette className="w-5 h-5 mr-2" />
-                  Aspetto e Tema
+                  <SettingsIcon className="w-5 h-5 mr-2" />
+                  Preferenze Applicazione
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -137,14 +166,14 @@ const Settings: React.FC = () => {
                   <div className="flex items-center space-x-3">
                     {darkMode ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
                     <div>
-                      <Label className="text-base font-medium">Modalità Scura</Label>
+                      <Label>Tema Scuro</Label>
                       <p className="text-sm text-gray-600 dark:text-gray-300">
-                        Attiva il tema scuro per un'esperienza più confortevole
+                        Attiva il tema scuro per ridurre l'affaticamento degli occhi
                       </p>
                     </div>
                   </div>
-                  <Switch
-                    checked={darkMode}
+                  <Switch 
+                    checked={darkMode} 
                     onCheckedChange={setDarkMode}
                   />
                 </div>
@@ -153,37 +182,27 @@ const Settings: React.FC = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label className="flex items-center">
-                      <CreditCard className="w-4 h-4 mr-2" />
-                      Valuta
-                    </Label>
+                    <Label>Valuta</Label>
                     <Select value={currency} onValueChange={setCurrency}>
-                      <SelectTrigger>
+                      <SelectTrigger className="mt-1">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="EUR">Euro (€)</SelectItem>
-                        <SelectItem value="USD">Dollaro USA ($)</SelectItem>
+                        <SelectItem value="USD">Dollaro ($)</SelectItem>
                         <SelectItem value="GBP">Sterlina (£)</SelectItem>
-                        <SelectItem value="CHF">Franco Svizzero (CHF)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-
                   <div>
-                    <Label className="flex items-center">
-                      <Globe className="w-4 h-4 mr-2" />
-                      Lingua
-                    </Label>
+                    <Label>Lingua</Label>
                     <Select value={language} onValueChange={setLanguage}>
-                      <SelectTrigger>
+                      <SelectTrigger className="mt-1">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="it">Italiano</SelectItem>
                         <SelectItem value="en">English</SelectItem>
-                        <SelectItem value="fr">Français</SelectItem>
-                        <SelectItem value="de">Deutsch</SelectItem>
                         <SelectItem value="es">Español</SelectItem>
                       </SelectContent>
                     </Select>
@@ -192,7 +211,7 @@ const Settings: React.FC = () => {
               </CardContent>
             </Card>
 
-            {/* Notifications */}
+            {/* Notifiche */}
             <Card className="animate-fade-in">
               <CardHeader>
                 <CardTitle className="flex items-center">
@@ -200,43 +219,39 @@ const Settings: React.FC = () => {
                   Notifiche
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-base font-medium">Notifiche Push</Label>
+                    <Label>Notifiche Push</Label>
                     <p className="text-sm text-gray-600 dark:text-gray-300">
-                      Ricevi notifiche per insight finanziari e aggiornamenti
+                      Ricevi notifiche per transazioni e obiettivi
                     </p>
                   </div>
-                  <Switch
-                    checked={notifications}
+                  <Switch 
+                    checked={notifications} 
                     onCheckedChange={setNotifications}
                   />
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-base font-medium">Insights AI</Label>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
-                      Notifiche per consigli e analisi personalizzate
-                    </p>
+                  <div className="flex items-center space-x-3">
+                    <Brain className="w-5 h-5" />
+                    <div>
+                      <Label>Suggerimenti AI</Label>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">
+                        Ricevi consigli personalizzati sull'app
+                      </p>
+                    </div>
                   </div>
-                  <Switch defaultChecked />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-base font-medium">Promemoria Budget</Label>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
-                      Avvisi quando ti avvicini ai limiti di spesa
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
+                  <Switch 
+                    checked={aiSuggestions} 
+                    onCheckedChange={setAiSuggestions}
+                  />
                 </div>
               </CardContent>
             </Card>
 
-            {/* Security */}
+            {/* Sicurezza */}
             <Card className="animate-fade-in">
               <CardHeader>
                 <CardTitle className="flex items-center">
@@ -244,64 +259,51 @@ const Settings: React.FC = () => {
                   Sicurezza
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <Smartphone className="w-5 h-5" />
                     <div>
-                      <Label className="text-base font-medium">Autenticazione Biometrica</Label>
+                      <Label>Autenticazione Biometrica</Label>
                       <p className="text-sm text-gray-600 dark:text-gray-300">
-                        Usa Face ID o Touch ID per accedere rapidamente
+                        Usa impronta digitale o Face ID per accedere
                       </p>
                     </div>
                   </div>
-                  <Switch
-                    checked={biometricAuth}
-                    onCheckedChange={setBiometricAuth}
+                  <Switch 
+                    checked={biometricAuth} 
+                    onCheckedChange={handleBiometricToggle}
                   />
                 </div>
 
                 <Separator />
 
-                <div className="flex flex-col space-y-2">
-                  <Button variant="outline" className="justify-start">
+                <div className="space-y-2">
+                  <Button variant="outline" className="w-full justify-start">
+                    <Lock className="w-4 h-4 mr-2" />
                     Cambia Password
                   </Button>
-                  <Button variant="outline" className="justify-start">
-                    Gestisci Sessioni Attive
+                  <Button variant="outline" className="w-full justify-start">
+                    <CreditCard className="w-4 h-4 mr-2" />
+                    Gestisci Metodi di Pagamento
                   </Button>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Data Management */}
+            {/* Gestione Dati */}
             <Card className="animate-fade-in">
               <CardHeader>
                 <CardTitle className="flex items-center">
-                  <SettingsIcon className="w-5 h-5 mr-2" />
+                  <Database className="w-5 h-5 mr-2" />
                   Gestione Dati
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div>
-                  <Label>Formato di Esportazione</Label>
-                  <Select value={exportFormat} onValueChange={setExportFormat}>
-                    <SelectTrigger className="w-full md:w-48">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="json">JSON</SelectItem>
-                      <SelectItem value="csv">CSV</SelectItem>
-                      <SelectItem value="pdf">PDF</SelectItem>
-                      <SelectItem value="xlsx">Excel</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-3">
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Button 
                     variant="outline" 
-                    className="flex items-center"
+                    className="justify-start"
                     onClick={handleExportData}
                   >
                     <Download className="w-4 h-4 mr-2" />
@@ -309,7 +311,7 @@ const Settings: React.FC = () => {
                   </Button>
                   <Button 
                     variant="outline" 
-                    className="flex items-center"
+                    className="justify-start"
                     onClick={handleImportData}
                   >
                     <Upload className="w-4 h-4 mr-2" />
@@ -317,43 +319,55 @@ const Settings: React.FC = () => {
                   </Button>
                 </div>
 
-                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
-                    📊 Archiviazione Automatica
+                <Separator />
+
+                <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg border border-red-200 dark:border-red-800">
+                  <h4 className="font-semibold text-red-900 dark:text-red-100 mb-2">
+                    Zona Pericolosa
                   </h4>
-                  <p className="text-sm text-blue-700 dark:text-blue-300">
-                    I dati più vecchi di 3 anni vengono automaticamente archiviati per ottimizzare le performance.
-                    Puoi sempre accedervi dalla sezione archivio.
+                  <p className="text-sm text-red-700 dark:text-red-300 mb-4">
+                    L'eliminazione dell'account è permanente e non può essere annullata.
                   </p>
+                  <Button 
+                    variant="destructive" 
+                    onClick={handleDeleteAccount}
+                    className="w-full"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Elimina Account
+                  </Button>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Account Actions */}
+            {/* Info App */}
             <Card className="animate-fade-in">
               <CardHeader>
-                <CardTitle className="text-red-600 dark:text-red-400">
-                  Azioni Account
-                </CardTitle>
+                <CardTitle>Informazioni App</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <Button variant="outline" className="text-red-600 border-red-300 hover:bg-red-50">
-                    Cancella Cache
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <Label>Versione</Label>
+                    <p className="text-gray-600 dark:text-gray-300">1.0.0</p>
+                  </div>
+                  <div>
+                    <Label>Ultimo Aggiornamento</Label>
+                    <p className="text-gray-600 dark:text-gray-300">15 Gen 2025</p>
+                  </div>
+                </div>
+                <Separator className="my-4" />
+                <div className="space-y-2">
+                  <Button variant="ghost" className="w-full justify-start">
+                    Termini di Servizio
                   </Button>
-                  <Button variant="outline" className="text-red-600 border-red-300 hover:bg-red-50">
-                    Reset Impostazioni
+                  <Button variant="ghost" className="w-full justify-start">
+                    Privacy Policy
+                  </Button>
+                  <Button variant="ghost" className="w-full justify-start">
+                    Supporto
                   </Button>
                 </div>
-                
-                <Separator />
-                
-                <Button 
-                  onClick={logout}
-                  className="w-full bg-red-600 hover:bg-red-700 text-white"
-                >
-                  Disconnetti
-                </Button>
               </CardContent>
             </Card>
           </div>
@@ -361,7 +375,7 @@ const Settings: React.FC = () => {
       </div>
 
       {/* Mobile Navigation */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4 z-50">
         <Navigation className="flex flex-row justify-around items-center space-y-0 space-x-2" />
       </nav>
     </div>
