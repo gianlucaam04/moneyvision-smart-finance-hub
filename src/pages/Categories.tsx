@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { useFinance } from '@/contexts/FinanceContext';
 import Header from '@/components/Layout/Header';
 import Navigation from '@/components/Layout/Navigation';
 import { Button } from '@/components/ui/button';
@@ -8,32 +9,66 @@ import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle } from 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CirclePlus, Edit, Trash2, Palette, DollarSign, Brain, TrendingUp, AlertTriangle } from 'lucide-react';
-import { useFinance } from '@/contexts/FinanceContext';
+import { CirclePlus, Edit, Trash2, Palette, Brain, X, Target, TrendingUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const Categories: React.FC = () => {
-  const { categories, addCategory } = useFinance();
+  const { transactions } = useFinance();
   const { toast } = useToast();
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryColor, setNewCategoryColor] = useState('#3B82F6');
+  const [newCategoryType, setNewCategoryType] = useState('expense');
   const [editingCategory, setEditingCategory] = useState<any>(null);
-  const [newCategory, setNewCategory] = useState({
-    name: '',
-    color: '#10B981',
-    icon: '📝',
-    budget: '',
-    type: 'expense'
-  });
+  const [dismissedInsights, setDismissedInsights] = useState<number[]>([]);
 
-  const predefinedColors = [
-    '#10B981', '#3B82F6', '#8B5CF6', '#F59E0B', '#EF4444',
-    '#6B7280', '#EC4899', '#14B8A6', '#F97316', '#84CC16'
+  // Mock categories con dati più realistici
+  const [categories, setCategories] = useState([
+    { id: '1', name: 'Alimentari', color: '#10B981', type: 'expense', transactions: 45, totalAmount: 1200, budget: 1500 },
+    { id: '2', name: 'Trasporti', color: '#3B82F6', type: 'expense', transactions: 23, totalAmount: 450, budget: 500 },
+    { id: '3', name: 'Intrattenimento', color: '#8B5CF6', type: 'expense', transactions: 18, totalAmount: 320, budget: 300 },
+    { id: '4', name: 'Stipendio', color: '#059669', type: 'income', transactions: 2, totalAmount: 3200, budget: null },
+    { id: '5', name: 'Bollette', color: '#EF4444', type: 'expense', transactions: 8, totalAmount: 480, budget: 500 },
+    { id: '6', name: 'Freelance', color: '#F59E0B', type: 'income', transactions: 5, totalAmount: 800, budget: null },
+  ]);
+
+  const colorOptions = [
+    '#10B981', '#3B82F6', '#8B5CF6', '#EF4444', '#F59E0B', 
+    '#06B6D4', '#84CC16', '#F97316', '#EC4899', '#6366F1'
   ];
 
-  const predefinedIcons = [
-    '🛒', '🚗', '💼', '🎬', '⚡', '🏥', '🎓', '🏋️', '🍕', '✈️',
-    '🏠', '📱', '👕', '💄', '🎵', '📚', '🐕', '🌱', '🔧', '🎁'
+  // AI Smart Insights per categorie
+  const aiCategoryInsights = [
+    {
+      id: 1,
+      type: 'budget',
+      icon: '📊',
+      title: 'Budget Intrattenimento Superato',
+      message: 'Hai superato il budget per "Intrattenimento" del 7% questo mese (€320/€300).',
+      actions: ['Rivedi Budget', 'Riduci Spese']
+    },
+    {
+      id: 2,
+      type: 'optimization',
+      icon: '💡',
+      title: 'Nuova Categoria Suggerita',
+      message: 'Le tue spese "Varie" potrebbero essere divise in "Abbonamenti" e "Shopping".',
+      actions: ['Crea Categorie', 'Ignora']
+    },
+    {
+      id: 3,
+      type: 'trend',
+      icon: '📈',
+      title: 'Risparmio in Crescita',
+      message: 'Le spese per "Trasporti" sono diminuite del 15% grazie all\'uso dei mezzi pubblici.',
+      actions: ['Continua Così', 'Dettagli']
+    }
   ];
+
+  const visibleInsights = aiCategoryInsights.filter(insight => !dismissedInsights.includes(insight.id));
+
+  const dismissInsight = (id: number) => {
+    setDismissedInsights(prev => [...prev, id]);
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('it-IT', {
@@ -42,188 +77,181 @@ const Categories: React.FC = () => {
     }).format(amount);
   };
 
-  const handleCreateCategory = () => {
-    if (newCategory.name.trim()) {
-      const categoryData = {
-        name: newCategory.name,
-        color: newCategory.color,
-        icon: newCategory.icon,
-        budget: newCategory.budget ? Number(newCategory.budget) : undefined,
-        type: newCategory.type as 'income' | 'expense'
+  const handleAddCategory = () => {
+    if (newCategoryName.trim()) {
+      const newCategory = {
+        id: Date.now().toString(),
+        name: newCategoryName,
+        color: newCategoryColor,
+        type: newCategoryType,
+        transactions: 0,
+        totalAmount: 0,
+        budget: null
       };
-      
-      addCategory(categoryData);
-      setNewCategory({ name: '', color: '#10B981', icon: '📝', budget: '', type: 'expense' });
-      setIsCreateDialogOpen(false);
-      
+      setCategories([...categories, newCategory]);
+      setNewCategoryName('');
+      setNewCategoryColor('#3B82F6');
+      setNewCategoryType('expense');
       toast({
-        title: "✅ Categoria creata",
-        description: `La categoria "${newCategory.name}" è stata aggiunta con successo.`,
+        title: "✅ Categoria Creata",
+        description: `"${newCategoryName}" è stata aggiunta con successo.`,
       });
     }
   };
 
   const handleEditCategory = (category: any) => {
     setEditingCategory(category);
-    setNewCategory({
-      name: category.name,
-      color: category.color,
-      icon: category.icon,
-      budget: category.budget?.toString() || '',
-      type: category.type
+    setNewCategoryName(category.name);
+    setNewCategoryColor(category.color);
+    setNewCategoryType(category.type);
+  };
+
+  const handleUpdateCategory = () => {
+    if (editingCategory && newCategoryName.trim()) {
+      setCategories(categories.map(cat => 
+        cat.id === editingCategory.id 
+          ? { ...cat, name: newCategoryName, color: newCategoryColor, type: newCategoryType }
+          : cat
+      ));
+      setEditingCategory(null);
+      setNewCategoryName('');
+      setNewCategoryColor('#3B82F6');
+      setNewCategoryType('expense');
+      toast({
+        title: "✅ Categoria Aggiornata",
+        description: `"${newCategoryName}" è stata modificata.`,
+      });
+    }
+  };
+
+  const handleDeleteCategory = (category: any) => {
+    if (category.transactions > 0) {
+      const confirm = window.confirm(
+        `"${category.name}" ha ${category.transactions} transazioni associate. Eliminarla comunque?`
+      );
+      if (!confirm) return;
+    }
+    
+    setCategories(categories.filter(cat => cat.id !== category.id));
+    toast({
+      title: "🗑️ Categoria Eliminata",
+      description: `"${category.name}" è stata rimossa.`,
     });
+  };
+
+  const setBudget = (categoryId: string) => {
+    const budget = prompt('Inserisci il budget mensile per questa categoria (€):');
+    if (budget && !isNaN(Number(budget))) {
+      setCategories(categories.map(cat => 
+        cat.id === categoryId 
+          ? { ...cat, budget: Number(budget) }
+          : cat
+      ));
+      toast({
+        title: "💰 Budget Impostato",
+        description: `Budget di ${formatCurrency(Number(budget))} salvato.`,
+      });
+    }
   };
 
   const expenseCategories = categories.filter(cat => cat.type === 'expense');
   const incomeCategories = categories.filter(cat => cat.type === 'income');
 
-  // AI Smart Suggestions per le categorie
-  const aiSuggestions = [
-    {
-      type: 'optimization',
-      icon: '🧠',
-      title: 'Ottimizzazione Budget',
-      message: 'Hai superato il budget per "Alimentari" del 15%. Considera di creare sottocategorie specifiche.',
-      action: 'Ottimizza',
-      priority: 'high'
-    },
-    {
-      type: 'suggestion',
-      icon: '📊',
-      title: 'Nuova Categoria Suggerita',
-      message: 'Hai molte spese per "Abbonamenti". Ti consiglio di creare una categoria dedicata.',
-      action: 'Crea Categoria',
-      priority: 'medium'
-    },
-    {
-      type: 'insight',
-      icon: '📈',
-      title: 'Trend Positivo',
-      message: 'Le tue spese per trasporti sono diminuite del 20% questo mese!',
-      action: 'Dettagli',
-      priority: 'low'
-    }
-  ];
-
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <Header />
       
-      <div className="flex">
+      <div className="flex flex-col lg:flex-row">
         <aside className="hidden lg:block w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 min-h-screen">
           <div className="p-6">
             <Navigation />
           </div>
         </aside>
 
-        <main className="flex-1 p-4 lg:p-6">
-          <div className="max-w-7xl mx-auto space-y-6">
+        <main className="flex-1 p-4 lg:p-6 max-w-full overflow-x-hidden">
+          <div className="max-w-7xl mx-auto space-y-4 lg:space-y-6">
             {/* Header Section */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex flex-col gap-4">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white animate-fade-in">
+                <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white animate-fade-in">
                   Gestione Categorie
                 </h1>
-                <p className="text-gray-600 dark:text-gray-300 mt-1">
-                  Organizza e personalizza le tue categorie di spesa
+                <p className="text-sm lg:text-base text-gray-600 dark:text-gray-300 mt-1">
+                  Organizza e monitora le tue categorie di spesa e entrata
                 </p>
               </div>
               
-              <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+              <Dialog>
                 <DialogTrigger asChild>
-                  <Button className="bg-gradient-to-r from-finance-blue to-finance-green hover:from-finance-blue/90 hover:to-finance-green/90 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105">
+                  <Button className="w-full sm:w-auto bg-gradient-to-r from-finance-blue to-finance-green hover:from-finance-blue/90 hover:to-finance-green/90 text-white">
                     <CirclePlus className="w-4 h-4 mr-2" />
                     Nuova Categoria
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 max-w-md mx-auto">
+                <DialogContent className="max-w-[95vw] sm:max-w-md">
                   <DialogHeader>
-                    <DialogTitle>{editingCategory ? 'Modifica Categoria' : 'Crea Nuova Categoria'}</DialogTitle>
+                    <DialogTitle>{editingCategory ? 'Modifica Categoria' : 'Nuova Categoria'}</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4">
                     <div>
                       <Label htmlFor="categoryName">Nome Categoria</Label>
                       <Input
                         id="categoryName"
-                        value={newCategory.name}
-                        onChange={(e) => setNewCategory({...newCategory, name: e.target.value})}
-                        placeholder="Es. Alimentari"
+                        value={newCategoryName}
+                        onChange={(e) => setNewCategoryName(e.target.value)}
+                        placeholder="Es. Alimentari, Trasporti..."
                         className="mt-1"
                       />
                     </div>
                     
                     <div>
-                      <Label>Tipo</Label>
-                      <Select value={newCategory.type} onValueChange={(value) => setNewCategory({...newCategory, type: value})}>
+                      <Label htmlFor="categoryType">Tipo</Label>
+                      <Select value={newCategoryType} onValueChange={setNewCategoryType}>
                         <SelectTrigger className="mt-1">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="expense">Uscita</SelectItem>
-                          <SelectItem value="income">Entrata</SelectItem>
+                          <SelectItem value="expense">💸 Spesa</SelectItem>
+                          <SelectItem value="income">💰 Entrata</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
-
-                    <div>
-                      <Label>Icona</Label>
-                      <div className="grid grid-cols-8 gap-2 mt-2">
-                        {predefinedIcons.map(icon => (
-                          <button
-                            key={icon}
-                            type="button"
-                            onClick={() => setNewCategory({...newCategory, icon})}
-                            className={`p-2 text-lg border rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
-                              newCategory.icon === icon ? 'border-finance-blue bg-finance-blue/10' : 'border-gray-300'
-                            }`}
-                          >
-                            {icon}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
+                    
                     <div>
                       <Label>Colore</Label>
-                      <div className="grid grid-cols-10 gap-2 mt-2">
-                        {predefinedColors.map(color => (
+                      <div className="grid grid-cols-5 gap-2 mt-2">
+                        {colorOptions.map((color) => (
                           <button
                             key={color}
-                            type="button"
-                            onClick={() => setNewCategory({...newCategory, color})}
-                            className={`w-8 h-8 rounded-full border-2 transition-transform hover:scale-110 ${
-                              newCategory.color === color ? 'border-gray-900 dark:border-white scale-110' : 'border-gray-300'
+                            className={`w-10 h-10 rounded-lg border-2 transition-all ${
+                              newCategoryColor === color 
+                                ? 'border-gray-900 scale-110' 
+                                : 'border-gray-300 hover:scale-105'
                             }`}
                             style={{ backgroundColor: color }}
+                            onClick={() => setNewCategoryColor(color)}
                           />
                         ))}
                       </div>
                     </div>
-
-                    {newCategory.type === 'expense' && (
-                      <div>
-                        <Label htmlFor="budget">Budget Mensile (opzionale)</Label>
-                        <Input
-                          id="budget"
-                          type="number"
-                          value={newCategory.budget}
-                          onChange={(e) => setNewCategory({...newCategory, budget: e.target.value})}
-                          placeholder="0.00"
-                          className="mt-1"
-                        />
-                      </div>
-                    )}
-
-                    <div className="flex justify-end space-x-2 pt-4">
-                      <Button variant="outline" onClick={() => {
-                        setIsCreateDialogOpen(false);
-                        setEditingCategory(null);
-                        setNewCategory({ name: '', color: '#10B981', icon: '📝', budget: '', type: 'expense' });
-                      }}>
-                        Annulla
+                    
+                    <div className="flex gap-2 pt-4">
+                      <Button 
+                        onClick={editingCategory ? handleUpdateCategory : handleAddCategory}
+                        className="flex-1"
+                      >
+                        {editingCategory ? 'Aggiorna' : 'Crea Categoria'}
                       </Button>
-                      <Button onClick={handleCreateCategory}>
-                        {editingCategory ? 'Aggiorna' : 'Crea'} Categoria
+                      <Button 
+                        variant="outline" 
+                        onClick={() => {
+                          setEditingCategory(null);
+                          setNewCategoryName('');
+                          setNewCategoryColor('#3B82F6');
+                          setNewCategoryType('expense');
+                        }}
+                      >
+                        Annulla
                       </Button>
                     </div>
                   </div>
@@ -231,163 +259,235 @@ const Categories: React.FC = () => {
               </Dialog>
             </div>
 
-            {/* AI Smart Suggestions */}
-            <Card className="animate-fade-in border-l-4 border-l-finance-blue">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Brain className="w-5 h-5 mr-2 text-finance-blue" />
-                  AI Smart Suggestions
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {aiSuggestions.map((suggestion, index) => (
-                    <div
-                      key={index}
-                      className={`p-4 rounded-lg border-l-4 transition-all duration-200 hover:shadow-md ${
-                        suggestion.priority === 'high' 
-                          ? 'bg-red-50 border-l-red-400 dark:bg-red-900/20' 
-                          : suggestion.priority === 'medium'
-                          ? 'bg-yellow-50 border-l-yellow-400 dark:bg-yellow-900/20'
-                          : 'bg-green-50 border-l-green-400 dark:bg-green-900/20'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start space-x-3 flex-1">
-                          <span className="text-2xl">{suggestion.icon}</span>
-                          <div className="flex-1">
-                            <h4 className="font-semibold text-gray-900 dark:text-white">
-                              {suggestion.title}
-                            </h4>
-                            <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                              {suggestion.message}
-                            </p>
+            {/* AI Smart Insights */}
+            {visibleInsights.length > 0 && (
+              <div className="space-y-2">
+                {visibleInsights.map((insight) => (
+                  <Card key={insight.id} className={`border-l-4 ${
+                    insight.type === 'budget' ? 'border-l-red-400 bg-red-50 dark:bg-red-900/10' :
+                    insight.type === 'optimization' ? 'border-l-blue-400 bg-blue-50 dark:bg-blue-900/10' :
+                    'border-l-green-400 bg-green-50 dark:bg-green-900/10'
+                  } animate-fade-in`}>
+                    <CardContent className="p-3 lg:p-4">
+                      <div className="flex items-start gap-3">
+                        <span className="text-lg flex-shrink-0">{insight.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-semibold text-sm lg:text-base text-gray-900 dark:text-white">
+                                {insight.title}
+                              </h4>
+                              <p className="text-xs lg:text-sm text-gray-600 dark:text-gray-300 mt-1">
+                                {insight.message}
+                              </p>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => dismissInsight(insight.id)}
+                              className="p-1 h-auto flex-shrink-0"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                          <div className="flex flex-wrap gap-2 mt-3">
+                            {insight.actions.map((action, idx) => (
+                              <Button
+                                key={idx}
+                                size="sm"
+                                variant={idx === 0 ? "default" : "outline"}
+                                className="text-xs px-3 py-1 h-auto"
+                                onClick={() => toast({
+                                  title: `🔧 ${action}`,
+                                  description: "Funzione in fase di sviluppo."
+                                })}
+                              >
+                                {action}
+                              </Button>
+                            ))}
                           </div>
                         </div>
-                        <div className="flex space-x-2 ml-4">
-                          <Button size="sm" variant="outline" className="hover:bg-finance-blue hover:text-white">
-                            {suggestion.action}
-                          </Button>
-                          <Button size="sm" variant="ghost">
-                            Ignora
-                          </Button>
-                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
 
-            {/* Expense Categories */}
-            <Card className="animate-fade-in">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <span className="text-expense mr-2">📉</span>
-                  Categorie di Uscita ({expenseCategories.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {expenseCategories.map(category => (
-                    <div
-                      key={category.id}
-                      className="border rounded-lg p-4 hover:shadow-md transition-all duration-200 bg-white dark:bg-gray-800 hover:scale-105"
-                    >
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center space-x-3">
-                          <div
-                            className="w-12 h-12 rounded-full flex items-center justify-center text-xl transition-transform hover:scale-110"
-                            style={{ backgroundColor: `${category.color}20`, color: category.color }}
-                          >
-                            {category.icon}
+            {/* Categories Overview */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+              {/* Expense Categories */}
+              <Card className="animate-fade-in">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center text-lg lg:text-xl">
+                    <span className="text-xl mr-2">💸</span>
+                    Categorie di Spesa ({expenseCategories.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {expenseCategories.map((category) => (
+                    <div key={category.id} className="p-3 lg:p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div 
+                          className="w-4 h-4 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: category.color }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <h3 className="font-semibold text-gray-900 dark:text-white">{category.name}</h3>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditCategory(category)}
+                                className="p-1 h-auto"
+                              >
+                                <Edit className="w-3 h-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteCategory(category)}
+                                className="p-1 h-auto hover:text-red-600"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </div>
                           </div>
-                          <span className="font-semibold text-gray-900 dark:text-white">
-                            {category.name}
-                          </span>
-                        </div>
-                        <div className="flex space-x-1">
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => handleEditCategory(category)}
-                            className="hover:bg-finance-blue hover:text-white"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" className="hover:bg-red-50 hover:text-red-600">
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                          
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mt-2">
+                            <div className="text-sm text-gray-600 dark:text-gray-300">
+                              {category.transactions} transazioni • {formatCurrency(category.totalAmount)}
+                            </div>
+                            {category.budget && (
+                              <div className={`text-xs px-2 py-1 rounded ${
+                                category.totalAmount > category.budget 
+                                  ? 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-300'
+                                  : 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-300'
+                              }`}>
+                                Budget: {formatCurrency(category.budget)}
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="flex flex-wrap gap-2 mt-3">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setBudget(category.id)}
+                              className="text-xs h-7"
+                            >
+                              <Target className="w-3 h-3 mr-1" />
+                              {category.budget ? 'Modifica Budget' : 'Imposta Budget'}
+                            </Button>
+                          </div>
                         </div>
                       </div>
-                      
-                      {category.budget && (
-                        <div className="text-sm text-gray-600 dark:text-gray-300">
-                          <div className="flex items-center justify-between">
-                            <span>Budget mensile:</span>
-                            <span className="font-semibold">{formatCurrency(category.budget)}</span>
-                          </div>
-                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-2">
-                            <div 
-                              className="h-2 rounded-full transition-all duration-500"
-                              style={{ 
-                                width: '65%',
-                                backgroundColor: category.color
-                              }}
-                            />
-                          </div>
-                          <div className="text-xs text-gray-500 mt-1">65% utilizzato</div>
-                        </div>
-                      )}
                     </div>
                   ))}
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
 
-            {/* Income Categories */}
-            <Card className="animate-fade-in">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <span className="text-success mr-2">📈</span>
-                  Categorie di Entrata ({incomeCategories.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {incomeCategories.map(category => (
-                    <div
-                      key={category.id}
-                      className="border rounded-lg p-4 hover:shadow-md transition-all duration-200 bg-white dark:bg-gray-800 hover:scale-105"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <div
-                            className="w-12 h-12 rounded-full flex items-center justify-center text-xl transition-transform hover:scale-110"
-                            style={{ backgroundColor: `${category.color}20`, color: category.color }}
-                          >
-                            {category.icon}
+              {/* Income Categories */}
+              <Card className="animate-fade-in">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center text-lg lg:text-xl">
+                    <span className="text-xl mr-2">💰</span>
+                    Categorie di Entrata ({incomeCategories.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {incomeCategories.map((category) => (
+                    <div key={category.id} className="p-3 lg:p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div 
+                          className="w-4 h-4 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: category.color }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <h3 className="font-semibold text-gray-900 dark:text-white">{category.name}</h3>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditCategory(category)}
+                                className="p-1 h-auto"
+                              >
+                                <Edit className="w-3 h-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteCategory(category)}
+                                className="p-1 h-auto hover:text-red-600"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </div>
                           </div>
-                          <span className="font-semibold text-gray-900 dark:text-white">
-                            {category.name}
-                          </span>
-                        </div>
-                        <div className="flex space-x-1">
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => handleEditCategory(category)}
-                            className="hover:bg-finance-green hover:text-white"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" className="hover:bg-red-50 hover:text-red-600">
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                          
+                          <div className="text-sm text-gray-600 dark:text-gray-300 mt-2">
+                            {category.transactions} transazioni • {formatCurrency(category.totalAmount)}
+                          </div>
+                          
+                          <div className="flex items-center gap-2 mt-3 text-xs text-green-600 dark:text-green-400">
+                            <TrendingUp className="w-3 h-3" />
+                            <span>Fonte di entrata attiva</span>
+                          </div>
                         </div>
                       </div>
                     </div>
                   ))}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Quick Stats */}
+            <Card className="animate-fade-in">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center text-lg lg:text-xl">
+                  <Palette className="w-5 h-5 mr-2" />
+                  Statistiche Rapide
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <div className="text-xl lg:text-2xl font-bold text-blue-600">
+                      {categories.length}
+                    </div>
+                    <div className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">
+                      Categorie Totali
+                    </div>
+                  </div>
+                  
+                  <div className="text-center p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                    <div className="text-xl lg:text-2xl font-bold text-red-600">
+                      {expenseCategories.length}
+                    </div>
+                    <div className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">
+                      Categorie Spesa
+                    </div>
+                  </div>
+                  
+                  <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                    <div className="text-xl lg:text-2xl font-bold text-green-600">
+                      {incomeCategories.length}
+                    </div>
+                    <div className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">
+                      Categorie Entrata
+                    </div>
+                  </div>
+                  
+                  <div className="text-center p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                    <div className="text-xl lg:text-2xl font-bold text-yellow-600">
+                      {categories.filter(cat => cat.budget).length}
+                    </div>
+                    <div className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">
+                      Con Budget
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -396,8 +496,8 @@ const Categories: React.FC = () => {
       </div>
 
       {/* Mobile Navigation */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4 z-50">
-        <Navigation className="flex flex-row justify-around items-center space-y-0 space-x-2" />
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-2 z-50">
+        <Navigation className="flex flex-row justify-around items-center space-y-0" />
       </nav>
     </div>
   );

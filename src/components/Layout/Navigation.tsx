@@ -13,6 +13,7 @@ const navigationItems = [
   { to: '/goals', label: 'Obiettivi', icon: '🎯' },
   { to: '/categories', label: 'Categorie', icon: '🏷️' },
   { to: '/analytics', label: 'Analisi', icon: '📈' },
+  { to: '/settings', label: 'Impostazioni', icon: '⚙️' },
 ];
 
 const Navigation: React.FC<NavigationProps> = ({ className }) => {
