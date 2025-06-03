@@ -44,7 +44,7 @@ const Dashboard: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20 lg:pb-0">
       <Header />
       
       <div className="flex">
@@ -206,8 +206,8 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Mobile Navigation */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4 z-50">
-        <Navigation className="flex flex-row justify-around items-center space-y-0 space-x-2" />
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 safe-area-bottom z-50 shadow-lg">
+        <Navigation />
       </nav>
     </div>
   );
