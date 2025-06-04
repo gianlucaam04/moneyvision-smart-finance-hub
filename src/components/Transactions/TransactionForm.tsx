@@ -24,7 +24,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onSuccess }) => {
     note: ''
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.amount || !formData.description || !formData.category) {
@@ -40,18 +40,13 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onSuccess }) => {
       ? -Math.abs(parseFloat(formData.amount))
       : Math.abs(parseFloat(formData.amount));
 
-    addTransaction({
+    await addTransaction({
       amount,
       description: formData.description,
       category: formData.category,
       type: formData.type,
       date: formData.date,
       note: formData.note || undefined
-    });
-
-    toast({
-      title: "Transazione aggiunta",
-      description: `${formData.type === 'income' ? 'Entrata' : 'Spesa'} di €${Math.abs(amount).toFixed(2)} aggiunta con successo`,
     });
 
     // Reset form

@@ -1,6 +1,8 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 
 interface AuthContextType {
   user: User | null;
@@ -29,158 +31,313 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    // Simula controllo sessione esistente
-    const savedUser = localStorage.getItem('moneyvision_user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    setIsLoading(false);
-  }, []);
+  // Load user profile from Supabase
+  const loadUserProfile = async (userId: string) => {
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
 
-  const saveUserToStorage = (updatedUser: User) => {
-    localStorage.setItem('moneyvision_user', JSON.stringify(updatedUser));
-    setUser(updatedUser);
+      if (error) {
+        console.error('Error loading profile:', error);
+        return null;
+      }
+
+      return {
+        id: profile.id,
+        email: profile.email,
+        name: profile.name,
+        preferences: profile.preferences
+      } as User;
+    } catch (error) {
+      console.error('Error loading user profile:', error);
+      return null;
+    }
   };
+
+  useEffect(() => {
+    // Check active session
+    const getSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.user) {
+          const userProfile = await loadUserProfile(session.user.id);
+          setUser(userProfile);
+        }
+      } catch (error) {
+        console.error('Error getting session:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    getSession();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state changed:', event, session);
+        
+        if (session?.user) {
+          const userProfile = await loadUserProfile(session.user.id);
+          setUser(userProfile);
+        } else {
+          setUser(null);
+        }
+        setIsLoading(false);
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     
-    // Simula chiamata API - in produzione sarà Supabase
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    if (email === 'demo@moneyvision.app' && password === 'demo123') {
-      const newUser: User = {
-        id: '1',
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
         email,
-        name: 'Demo User',
-        preferences: {
-          theme: 'system',
-          currency: 'EUR',
-          notifications: true,
-          language: 'it',
-          biometricAuth: false
-        }
-      };
-      
-      saveUserToStorage(newUser);
-      setIsLoading(false);
+        password,
+      });
+
+      if (error) {
+        console.error('Login error:', error);
+        toast({
+          title: "Errore",
+          description: error.message,
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return false;
+      }
+
       return true;
+    } catch (error) {
+      console.error('Login error:', error);
+      setIsLoading(false);
+      return false;
     }
-    
-    setIsLoading(false);
-    return false;
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('moneyvision_user');
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
   
-  const updateUserPreferences = (preferences: Partial<User['preferences']>) => {
+  const updateUserPreferences = async (preferences: Partial<User['preferences']>) => {
     if (!user) return;
     
-    const updatedUser = {
-      ...user,
-      preferences: {
+    try {
+      const updatedPreferences = {
         ...user.preferences,
         ...preferences
+      };
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({ preferences: updatedPreferences })
+        .eq('id', user.id);
+
+      if (error) {
+        console.error('Error updating preferences:', error);
+        toast({
+          title: "Errore",
+          description: "Impossibile aggiornare le preferenze",
+          variant: "destructive",
+        });
+        return;
       }
-    };
-    
-    saveUserToStorage(updatedUser);
-    
-    // Applica il tema immediatamente se cambiato
-    if (preferences.theme) {
-      document.documentElement.classList.toggle('dark', 
-        preferences.theme === 'dark' || 
-        (preferences.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
+
+      const updatedUser = {
+        ...user,
+        preferences: updatedPreferences
+      };
+      
+      setUser(updatedUser);
+      
+      // Apply theme immediately
+      if (preferences.theme) {
+        document.documentElement.classList.toggle('dark', 
+          preferences.theme === 'dark' || 
+          (preferences.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
+      }
+
+      toast({
+        title: "Successo",
+        description: "Preferenze aggiornate con successo",
+      });
+    } catch (error) {
+      console.error('Error updating preferences:', error);
     }
   };
   
   const changePassword = async (oldPassword: string, newPassword: string): Promise<boolean> => {
     setIsLoading(true);
     
-    // Simula chiamata API - in produzione sarà Supabase
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Controlla la vecchia password (solo per demo)
-    if (oldPassword === 'demo123') {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) {
+        console.error('Password change error:', error);
+        toast({
+          title: "Errore",
+          description: error.message,
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return false;
+      }
+
+      toast({
+        title: "Successo",
+        description: "Password cambiata con successo",
+      });
       setIsLoading(false);
       return true;
+    } catch (error) {
+      console.error('Password change error:', error);
+      setIsLoading(false);
+      return false;
     }
-    
-    setIsLoading(false);
-    return false;
   };
   
   const deleteAccount = async (): Promise<boolean> => {
+    if (!user) return false;
+    
     setIsLoading(true);
     
-    // Simula chiamata API - in produzione sarà Supabase
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Elimina l'account e i dati
-    logout();
-    localStorage.clear();
-    setIsLoading(false);
-    return true;
+    try {
+      // Delete user data will be handled by CASCADE in database
+      const { error } = await supabase.auth.admin.deleteUser(user.id);
+      
+      if (error) {
+        console.error('Account deletion error:', error);
+        toast({
+          title: "Errore",
+          description: "Impossibile eliminare l'account",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return false;
+      }
+
+      await logout();
+      toast({
+        title: "Account eliminato",
+        description: "Il tuo account è stato eliminato con successo",
+      });
+      setIsLoading(false);
+      return true;
+    } catch (error) {
+      console.error('Account deletion error:', error);
+      setIsLoading(false);
+      return false;
+    }
   };
   
   const exportData = async (): Promise<boolean> => {
     if (!user) return false;
     
-    // Raccoglie tutti i dati dell'utente
-    const userDataString = localStorage.getItem('moneyvision_user');
-    const transactionsString = localStorage.getItem('moneyvision_transactions');
-    const goalsString = localStorage.getItem('moneyvision_goals');
-    
-    // Crea un oggetto con tutti i dati
-    const exportData = {
-      user: userDataString ? JSON.parse(userDataString) : null,
-      transactions: transactionsString ? JSON.parse(transactionsString) : [],
-      goals: goalsString ? JSON.parse(goalsString) : []
-    };
-    
-    // Crea un file scaricabile
-    const dataStr = JSON.stringify(exportData, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
-    
-    const exportFileDefaultName = 'moneyvision_data.json';
-    const linkElement = document.createElement('a');
-    linkElement.setAttribute('href', dataUri);
-    linkElement.setAttribute('download', exportFileDefaultName);
-    linkElement.click();
-    
-    return true;
+    try {
+      // Fetch all user data from Supabase
+      const [categoriesRes, transactionsRes, goalsRes] = await Promise.all([
+        supabase.from('categories').select('*').eq('user_id', user.id),
+        supabase.from('transactions').select('*').eq('user_id', user.id),
+        supabase.from('savings_goals').select('*').eq('user_id', user.id)
+      ]);
+
+      const exportData = {
+        user,
+        categories: categoriesRes.data || [],
+        transactions: transactionsRes.data || [],
+        goals: goalsRes.data || []
+      };
+      
+      const dataStr = JSON.stringify(exportData, null, 2);
+      const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+      
+      const exportFileDefaultName = 'moneyvision_data.json';
+      const linkElement = document.createElement('a');
+      linkElement.setAttribute('href', dataUri);
+      linkElement.setAttribute('download', exportFileDefaultName);
+      linkElement.click();
+      
+      toast({
+        title: "Successo",
+        description: "Dati esportati con successo",
+      });
+      return true;
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        title: "Errore",
+        description: "Impossibile esportare i dati",
+        variant: "destructive",
+      });
+      return false;
+    }
   };
   
   const importData = async (data: string): Promise<boolean> => {
+    if (!user) return false;
+    
     try {
       const importData = JSON.parse(data);
       
-      // Valida i dati importati
-      if (importData.user) {
-        localStorage.setItem('moneyvision_user', JSON.stringify(importData.user));
+      // Import categories
+      if (Array.isArray(importData.categories)) {
+        const categories = importData.categories.map((cat: any) => ({
+          ...cat,
+          user_id: user.id,
+          id: undefined // Let database generate new IDs
+        }));
+        
+        await supabase.from('categories').insert(categories);
       }
       
+      // Import transactions
       if (Array.isArray(importData.transactions)) {
-        localStorage.setItem('moneyvision_transactions', JSON.stringify(importData.transactions));
+        const transactions = importData.transactions.map((trans: any) => ({
+          ...trans,
+          user_id: user.id,
+          id: undefined // Let database generate new IDs
+        }));
+        
+        await supabase.from('transactions').insert(transactions);
       }
       
+      // Import goals
       if (Array.isArray(importData.goals)) {
-        localStorage.setItem('moneyvision_goals', JSON.stringify(importData.goals));
+        const goals = importData.goals.map((goal: any) => ({
+          ...goal,
+          user_id: user.id,
+          id: undefined // Let database generate new IDs
+        }));
+        
+        await supabase.from('savings_goals').insert(goals);
       }
       
-      // Ricarica i dati utente
-      const savedUser = localStorage.getItem('moneyvision_user');
-      if (savedUser) {
-        setUser(JSON.parse(savedUser));
-      }
-      
+      toast({
+        title: "Successo",
+        description: "Dati importati con successo",
+      });
       return true;
     } catch (error) {
-      console.error('Errore durante l\'importazione dei dati:', error);
+      console.error('Import error:', error);
+      toast({
+        title: "Errore",
+        description: "Impossibile importare i dati",
+        variant: "destructive",
+      });
       return false;
     }
   };

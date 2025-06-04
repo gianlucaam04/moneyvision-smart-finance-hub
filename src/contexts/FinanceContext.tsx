@@ -1,5 +1,9 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Transaction, Category, SavingsGoal, FinancialSummary } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from '@/hooks/use-toast';
 
 interface FinanceContextType {
   transactions: Transaction[];
@@ -15,6 +19,7 @@ interface FinanceContextType {
   addSavingsGoal: (goal: Omit<SavingsGoal, 'id'>) => void;
   updateSavingsGoal: (id: string, amount: number) => void;
   refreshSummary: () => void;
+  isLoading: boolean;
 }
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
@@ -27,75 +32,20 @@ export const useFinance = () => {
   return context;
 };
 
-// Dati demo iniziali
-const initialCategories: Category[] = [
-  { id: '1', name: 'Stipendio', color: '#10B981', icon: 'circle-dollar-sign', type: 'income' },
-  { id: '2', name: 'Alimentari', color: '#F59E0B', icon: 'circle-minus', type: 'expense', budget: 400 },
-  { id: '3', name: 'Trasporti', color: '#EF4444', icon: 'circle-minus', type: 'expense', budget: 200 },
-  { id: '4', name: 'Intrattenimento', color: '#8B5CF6', icon: 'circle-minus', type: 'expense', budget: 150 },
-];
-
-const initialTransactions: Transaction[] = [
-  {
-    id: '1',
-    amount: 2500,
-    description: 'Stipendio Marzo',
-    category: 'Stipendio',
-    type: 'income',
-    date: '2024-03-01',
-    createdAt: '2024-03-01T10:00:00Z',
-    updatedAt: '2024-03-01T10:00:00Z'
-  },
-  {
-    id: '2',
-    amount: -85.50,
-    description: 'Spesa supermercato',
-    category: 'Alimentari',
-    type: 'expense',
-    date: '2024-03-02',
-    note: 'Spesa settimanale',
-    createdAt: '2024-03-02T14:30:00Z',
-    updatedAt: '2024-03-02T14:30:00Z'
-  },
-  {
-    id: '3',
-    amount: -25.00,
-    description: 'Abbonamento metro',
-    category: 'Trasporti',
-    type: 'expense',
-    date: '2024-03-01',
-    createdAt: '2024-03-01T08:15:00Z',
-    updatedAt: '2024-03-01T08:15:00Z'
-  }
-];
-
-const initialGoals: SavingsGoal[] = [
-  {
-    id: '1',
-    title: 'Vacanza Estiva',
-    targetAmount: 1500,
-    currentAmount: 450,
-    deadline: '2024-07-01',
-    color: '#3B82F6',
-    description: 'Viaggio in Grecia',
-    isCompleted: false
-  },
-  {
-    id: '2',
-    title: 'Fondo Emergenza',
-    targetAmount: 3000,
-    currentAmount: 1200,
-    deadline: '2024-12-31',
-    color: '#10B981',
-    description: 'Fondo di sicurezza',
-    isCompleted: false
-  }
+// Default categories for new users
+const defaultCategories: Omit<Category, 'id'>[] = [
+  { name: 'Stipendio', color: '#10B981', icon: 'circle-dollar-sign', type: 'income' },
+  { name: 'Alimentari', color: '#F59E0B', icon: 'circle-minus', type: 'expense', budget: 400 },
+  { name: 'Trasporti', color: '#EF4444', icon: 'circle-minus', type: 'expense', budget: 200 },
+  { name: 'Intrattenimento', color: '#8B5CF6', icon: 'circle-minus', type: 'expense', budget: 150 },
 ];
 
 export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
-  const [categories, setCategories] = useState<Category[]>(initialCategories);
-  const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>(initialGoals);
+  const { user, isAuthenticated } = useAuth();
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [summary, setSummary] = useState<FinancialSummary>({
     totalIncome: 0,
     totalExpenses: 0,
@@ -103,6 +53,103 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     monthlyTrend: 'stable',
     budgetUsage: 0
   });
+
+  // Load data from Supabase when user is authenticated
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      loadUserData();
+    } else {
+      // Clear data when user logs out
+      setTransactions([]);
+      setCategories([]);
+      setSavingsGoals([]);
+    }
+  }, [isAuthenticated, user]);
+
+  const loadUserData = async () => {
+    if (!user) return;
+    
+    setIsLoading(true);
+    
+    try {
+      // Load categories
+      const { data: categoriesData, error: categoriesError } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true });
+
+      if (categoriesError) {
+        console.error('Error loading categories:', categoriesError);
+      } else {
+        // If no categories exist, create default ones
+        if (categoriesData.length === 0) {
+          await createDefaultCategories();
+        } else {
+          setCategories(categoriesData);
+        }
+      }
+
+      // Load transactions
+      const { data: transactionsData, error: transactionsError } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('date', { ascending: false });
+
+      if (transactionsError) {
+        console.error('Error loading transactions:', transactionsError);
+      } else {
+        setTransactions(transactionsData || []);
+      }
+
+      // Load savings goals
+      const { data: goalsData, error: goalsError } = await supabase
+        .from('savings_goals')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true });
+
+      if (goalsError) {
+        console.error('Error loading goals:', goalsError);
+      } else {
+        setSavingsGoals(goalsData || []);
+      }
+    } catch (error) {
+      console.error('Error loading user data:', error);
+      toast({
+        title: "Errore",
+        description: "Impossibile caricare i dati",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const createDefaultCategories = async () => {
+    if (!user) return;
+
+    try {
+      const categoriesToInsert = defaultCategories.map(cat => ({
+        ...cat,
+        user_id: user.id
+      }));
+
+      const { data, error } = await supabase
+        .from('categories')
+        .insert(categoriesToInsert)
+        .select();
+
+      if (error) {
+        console.error('Error creating default categories:', error);
+      } else {
+        setCategories(data || []);
+      }
+    } catch (error) {
+      console.error('Error creating default categories:', error);
+    }
+  };
 
   const calculateSummary = () => {
     const currentMonth = new Date().getMonth();
@@ -116,17 +163,17 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     const totalIncome = monthlyTransactions
       .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum + Number(t.amount), 0);
     
     const totalExpenses = Math.abs(monthlyTransactions
       .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + t.amount, 0));
+      .reduce((sum, t) => sum + Number(t.amount), 0));
 
     const balance = totalIncome - totalExpenses;
     
     const totalBudget = categories
       .filter(c => c.budget)
-      .reduce((sum, c) => sum + (c.budget || 0), 0);
+      .reduce((sum, c) => sum + Number(c.budget || 0), 0);
     
     const budgetUsage = totalBudget > 0 ? (totalExpenses / totalBudget) * 100 : 0;
 
@@ -143,62 +190,268 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     calculateSummary();
   }, [transactions, categories]);
 
-  const addTransaction = (transactionData: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newTransaction: Transaction = {
-      ...transactionData,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    setTransactions(prev => [newTransaction, ...prev]);
+  const addTransaction = async (transactionData: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .insert({
+          ...transactionData,
+          user_id: user.id
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error adding transaction:', error);
+        toast({
+          title: "Errore",
+          description: "Impossibile aggiungere la transazione",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setTransactions(prev => [data, ...prev]);
+      toast({
+        title: "Successo",
+        description: "Transazione aggiunta con successo",
+      });
+    } catch (error) {
+      console.error('Error adding transaction:', error);
+    }
   };
 
-  const updateTransaction = (id: string, updates: Partial<Transaction>) => {
-    setTransactions(prev => prev.map(t => 
-      t.id === id ? { ...t, ...updates, updatedAt: new Date().toISOString() } : t
-    ));
+  const updateTransaction = async (id: string, updates: Partial<Transaction>) => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .update(updates)
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating transaction:', error);
+        toast({
+          title: "Errore",
+          description: "Impossibile aggiornare la transazione",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setTransactions(prev => prev.map(t => t.id === id ? data : t));
+      toast({
+        title: "Successo",
+        description: "Transazione aggiornata con successo",
+      });
+    } catch (error) {
+      console.error('Error updating transaction:', error);
+    }
   };
 
-  const deleteTransaction = (id: string) => {
-    setTransactions(prev => prev.filter(t => t.id !== id));
+  const deleteTransaction = async (id: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('transactions')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Error deleting transaction:', error);
+        toast({
+          title: "Errore",
+          description: "Impossibile eliminare la transazione",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setTransactions(prev => prev.filter(t => t.id !== id));
+      toast({
+        title: "Successo",
+        description: "Transazione eliminata con successo",
+      });
+    } catch (error) {
+      console.error('Error deleting transaction:', error);
+    }
   };
 
-  const addCategory = (categoryData: Omit<Category, 'id'>) => {
-    const newCategory: Category = {
-      ...categoryData,
-      id: Date.now().toString()
-    };
-    setCategories(prev => [...prev, newCategory]);
+  const addCategory = async (categoryData: Omit<Category, 'id'>) => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('categories')
+        .insert({
+          ...categoryData,
+          user_id: user.id
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error adding category:', error);
+        toast({
+          title: "Errore",
+          description: "Impossibile aggiungere la categoria",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setCategories(prev => [...prev, data]);
+      toast({
+        title: "Successo",
+        description: "Categoria aggiunta con successo",
+      });
+    } catch (error) {
+      console.error('Error adding category:', error);
+    }
   };
 
-  const updateCategory = (id: string, updates: Partial<Category>) => {
-    setCategories(prev =>
-      prev.map(c => c.id === id ? { ...c, ...updates } : c)
-    );
+  const updateCategory = async (id: string, updates: Partial<Category>) => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('categories')
+        .update(updates)
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating category:', error);
+        toast({
+          title: "Errore",
+          description: "Impossibile aggiornare la categoria",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setCategories(prev => prev.map(c => c.id === id ? data : c));
+      toast({
+        title: "Successo",
+        description: "Categoria aggiornata con successo",
+      });
+    } catch (error) {
+      console.error('Error updating category:', error);
+    }
   };
 
-  const deleteCategory = (id: string) => {
-    setCategories(prev => prev.filter(c => c.id !== id));
+  const deleteCategory = async (id: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('categories')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Error deleting category:', error);
+        toast({
+          title: "Errore",
+          description: "Impossibile eliminare la categoria",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setCategories(prev => prev.filter(c => c.id !== id));
+      toast({
+        title: "Successo",
+        description: "Categoria eliminata con successo",
+      });
+    } catch (error) {
+      console.error('Error deleting category:', error);
+    }
   };
 
-  const addSavingsGoal = (goalData: Omit<SavingsGoal, 'id'>) => {
-    const newGoal: SavingsGoal = {
-      ...goalData,
-      id: Date.now().toString()
-    };
-    setSavingsGoals(prev => [...prev, newGoal]);
+  const addSavingsGoal = async (goalData: Omit<SavingsGoal, 'id'>) => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('savings_goals')
+        .insert({
+          ...goalData,
+          user_id: user.id
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error adding goal:', error);
+        toast({
+          title: "Errore",
+          description: "Impossibile aggiungere l'obiettivo",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setSavingsGoals(prev => [...prev, data]);
+      toast({
+        title: "Successo",
+        description: "Obiettivo aggiunto con successo",
+      });
+    } catch (error) {
+      console.error('Error adding goal:', error);
+    }
   };
 
-  const updateSavingsGoal = (id: string, amount: number) => {
-    setSavingsGoals(prev => prev.map(goal => 
-      goal.id === id 
-        ? { 
-            ...goal, 
-            currentAmount: Math.min(amount, goal.targetAmount),
-            isCompleted: amount >= goal.targetAmount
-          }
-        : goal
-    ));
+  const updateSavingsGoal = async (id: string, amount: number) => {
+    if (!user) return;
+
+    const goal = savingsGoals.find(g => g.id === id);
+    if (!goal) return;
+
+    const newAmount = Math.min(amount, Number(goal.targetAmount));
+    const isCompleted = newAmount >= Number(goal.targetAmount);
+
+    try {
+      const { data, error } = await supabase
+        .from('savings_goals')
+        .update({ 
+          current_amount: newAmount,
+          is_completed: isCompleted
+        })
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating goal:', error);
+        toast({
+          title: "Errore",
+          description: "Impossibile aggiornare l'obiettivo",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setSavingsGoals(prev => prev.map(g => g.id === id ? data : g));
+      toast({
+        title: "Successo",
+        description: "Obiettivo aggiornato con successo",
+      });
+    } catch (error) {
+      console.error('Error updating goal:', error);
+    }
   };
 
   const value = {
@@ -214,7 +467,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     deleteCategory,
     addSavingsGoal,
     updateSavingsGoal,
-    refreshSummary: calculateSummary
+    refreshSummary: calculateSummary,
+    isLoading
   };
 
   return (
