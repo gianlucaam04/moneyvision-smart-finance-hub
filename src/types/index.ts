@@ -47,6 +47,8 @@ export interface User {
     theme: 'light' | 'dark' | 'system';
     currency: string;
     notifications: boolean;
+    language: string;
+    biometricAuth: boolean;
   };
 }
 

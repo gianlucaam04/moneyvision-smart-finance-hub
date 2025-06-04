@@ -90,11 +90,29 @@
   * {
     @apply border-border;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    box-sizing: border-box;
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground overflow-x-hidden max-w-full;
     font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Garantisce che tutti i contenitori abbiano overflow nascosto */
+  .layout-container,
+  .dashboard-container,
+  .card {
+    @apply overflow-x-hidden max-w-full;
+  }
+
+  /* Nasconde scrollbar ma mantiene funzionalità di scroll */
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
   }
 
   /* Smooth scrolling */

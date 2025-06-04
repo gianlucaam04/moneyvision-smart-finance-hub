@@ -8,12 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { TrendingUp, TrendingDown, DollarSign, Calendar, Target, PieChart as PieChartIcon, X, Brain, AlertTriangle } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Calendar, Target, PieChart as PieChartIcon } from 'lucide-react';
 
 const Analytics: React.FC = () => {
   const { transactions, summary } = useFinance();
   const [timeRange, setTimeRange] = useState('thisMonth');
-  const [dismissedInsights, setDismissedInsights] = useState<number[]>([]);
+
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('it-IT', {
@@ -22,39 +22,7 @@ const Analytics: React.FC = () => {
     }).format(amount);
   };
 
-  // AI Smart Insights - Notifiche proattive discrete
-  const aiSmartInsights = [
-    {
-      id: 1,
-      type: 'alert',
-      icon: '⚠️',
-      title: 'Spesa Anomala Rilevata',
-      message: 'Le tue spese per intrattenimento sono aumentate del 30% rispetto al mese scorso.',
-      actions: ['Rivedi Budget', 'Ignora']
-    },
-    {
-      id: 2,
-      type: 'suggestion',
-      icon: '💡',
-      title: 'Opportunità di Risparmio',
-      message: 'Potresti risparmiare €120/mese ottimizzando gli abbonamenti non utilizzati.',
-      actions: ['Mostra Dettagli', 'Ignora']
-    },
-    {
-      id: 3,
-      type: 'achievement',
-      icon: '🎉',
-      title: 'Obiettivo Quasi Raggiunto',
-      message: 'Ti mancano solo €200 per raggiungere il tuo obiettivo "Vacanza Estiva".',
-      actions: ['Aggiungi Fondi', 'Visualizza']
-    }
-  ];
 
-  const visibleInsights = aiSmartInsights.filter(insight => !dismissedInsights.includes(insight.id));
-
-  const dismissInsight = (id: number) => {
-    setDismissedInsights(prev => [...prev, id]);
-  };
 
   // Mock data ottimizzato per mobile
   const monthlyData = [
@@ -85,7 +53,7 @@ const Analytics: React.FC = () => {
           </div>
         </aside>
 
-        <main className="flex-1 p-4 lg:p-6 max-w-full overflow-x-hidden">
+        <main className="flex-1 p-4 lg:p-6 pb-24 lg:pb-6 max-w-full overflow-x-hidden">
           <div className="max-w-7xl mx-auto space-y-4 lg:space-y-6">
             {/* Header Section - Mobile Optimized */}
             <div className="flex flex-col gap-4">
@@ -112,56 +80,7 @@ const Analytics: React.FC = () => {
               </Select>
             </div>
 
-            {/* AI Smart Insights - Notifiche Card Discrete */}
-            {visibleInsights.length > 0 && (
-              <div className="space-y-2">
-                {visibleInsights.map((insight) => (
-                  <Card key={insight.id} className={`border-l-4 ${
-                    insight.type === 'alert' ? 'border-l-red-400 bg-red-50 dark:bg-red-900/10' :
-                    insight.type === 'suggestion' ? 'border-l-blue-400 bg-blue-50 dark:bg-blue-900/10' :
-                    'border-l-green-400 bg-green-50 dark:bg-green-900/10'
-                  } animate-fade-in`}>
-                    <CardContent className="p-3 lg:p-4">
-                      <div className="flex items-start gap-3">
-                        <span className="text-lg lg:text-xl flex-shrink-0">{insight.icon}</span>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-semibold text-sm lg:text-base text-gray-900 dark:text-white">
-                                {insight.title}
-                              </h4>
-                              <p className="text-xs lg:text-sm text-gray-600 dark:text-gray-300 mt-1">
-                                {insight.message}
-                              </p>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => dismissInsight(insight.id)}
-                              className="p-1 h-auto flex-shrink-0"
-                            >
-                              <X className="w-4 h-4" />
-                            </Button>
-                          </div>
-                          <div className="flex flex-wrap gap-2 mt-3">
-                            {insight.actions.map((action, idx) => (
-                              <Button
-                                key={idx}
-                                size="sm"
-                                variant={idx === 0 ? "default" : "outline"}
-                                className="text-xs px-3 py-1 h-auto"
-                              >
-                                {action}
-                              </Button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
+
 
             {/* Key Metrics - Mobile Optimized Grid */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6 animate-fade-in">
@@ -293,7 +212,7 @@ const Analytics: React.FC = () => {
                       <CardTitle className="text-lg lg:text-xl">Dettaglio Categorie</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="space-y-3 lg:space-y-4">
+                      <div className="space-y-3 lg:space-y-4 overflow-hidden w-full">
                         {categoryData.map((category) => (
                           <div key={category.name} className="flex items-center justify-between">
                             <div className="flex items-center space-x-3">
@@ -322,8 +241,8 @@ const Analytics: React.FC = () => {
                   <Card>
                     <CardHeader className="pb-3">
                       <CardTitle className="flex items-center text-lg lg:text-xl">
-                        <Brain className="w-4 h-4 lg:w-5 lg:h-5 mr-2" />
-                        Previsioni AI 🤖
+                        <TrendingUp className="w-4 h-4 lg:w-5 lg:h-5 mr-2" />
+                        Previsioni e Trend
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3 lg:space-y-4">
@@ -416,7 +335,7 @@ const Analytics: React.FC = () => {
       </div>
 
       {/* Mobile Navigation */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-2 z-50">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-2 z-50 overflow-hidden">
         <Navigation className="flex flex-row justify-around items-center space-y-0" />
       </nav>
     </div>

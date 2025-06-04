@@ -26,7 +26,7 @@ const RecentTransactions: React.FC = () => {
   };
 
   return (
-    <Card className="hover:shadow-lg transition-all duration-200">
+    <Card className="hover:shadow-lg transition-all duration-200 overflow-hidden w-full">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
         <CardTitle className="text-lg font-semibold">Transazioni Recenti</CardTitle>
         <Button 
@@ -38,7 +38,7 @@ const RecentTransactions: React.FC = () => {
           Vedi tutte
         </Button>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 overflow-hidden w-full">
         {recentTransactions.length === 0 ? (
           <div className="text-center py-8 text-gray-500 dark:text-gray-400">
             <span className="text-4xl mb-2 block">📝</span>
@@ -48,17 +48,17 @@ const RecentTransactions: React.FC = () => {
           recentTransactions.map((transaction) => (
             <div
               key={transaction.id}
-              className="flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors duration-200"
+              className="flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors duration-200 overflow-hidden w-full"
             >
               <div className="flex items-center space-x-3">
                 <div className={`w-2 h-2 rounded-full ${
                   transaction.type === 'income' ? 'bg-success' : 'bg-expense'
                 }`} />
-                <div>
-                  <p className="font-medium text-gray-900 dark:text-white">
+                <div className="min-w-0 flex-1 overflow-hidden">
+                  <p className="font-medium text-gray-900 dark:text-white truncate">
                     {transaction.description}
                   </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
                     {transaction.category} • {formatDate(transaction.date)}
                   </p>
                 </div>

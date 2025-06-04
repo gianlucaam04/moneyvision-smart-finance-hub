@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { CirclePlus, Search, Filter, Edit, Trash2, Brain, X, AlertTriangle, CheckCircle, Info } from 'lucide-react';
+import { CirclePlus, Search, Filter, Edit, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const Transactions: React.FC = () => {
@@ -21,7 +21,7 @@ const Transactions: React.FC = () => {
   const [typeFilter, setTypeFilter] = useState('all');
   const [editingTransaction, setEditingTransaction] = useState<any>(null);
   const [transactionNote, setTransactionNote] = useState('');
-  const [dismissedInsights, setDismissedInsights] = useState<number[]>([]);
+
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('it-IT', {
@@ -38,39 +38,7 @@ const Transactions: React.FC = () => {
     });
   };
 
-  // AI Smart Insights per le transazioni
-  const aiTransactionInsights = [
-    {
-      id: 1,
-      type: 'anomaly',
-      icon: '🚨',
-      title: 'Spesa Anomala Rilevata',
-      message: 'Hai speso €350 per "Intrattenimento" ieri, il 200% in più della tua media.',
-      actions: ['Verifica', 'Ignora']
-    },
-    {
-      id: 2,
-      type: 'duplicate',
-      icon: '👥',
-      title: 'Possibile Duplicato',
-      message: 'Transazione simile trovata: "Supermercato" per €85.50 dello stesso giorno.',
-      actions: ['Controlla', 'Ignora']
-    },
-    {
-      id: 3,
-      type: 'category',
-      icon: '🏷️',
-      title: 'Categorizzazione Suggerita',
-      message: '3 transazioni potrebbero essere categorizzate meglio per un tracking preciso.',
-      actions: ['Ottimizza', 'Dopo']
-    }
-  ];
 
-  const visibleInsights = aiTransactionInsights.filter(insight => !dismissedInsights.includes(insight.id));
-
-  const dismissInsight = (id: number) => {
-    setDismissedInsights(prev => [...prev, id]);
-  };
 
   const filteredTransactions = transactions.filter(transaction => {
     const matchesSearch = transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -124,7 +92,7 @@ const Transactions: React.FC = () => {
           </div>
         </aside>
 
-        <main className="flex-1 p-4 lg:p-6 max-w-full overflow-x-hidden">
+        <main className="flex-1 p-4 lg:p-6 pb-24 lg:pb-6 max-w-full overflow-x-hidden">
           <div className="max-w-7xl mx-auto space-y-4 lg:space-y-6">
             {/* Header Section - Mobile Optimized */}
             <div className="flex flex-col gap-4">
@@ -144,66 +112,11 @@ const Transactions: React.FC = () => {
                     Nuova Transazione
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 max-w-[95vw] sm:max-w-md">
+                <DialogContent className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 max-w-[95vw] sm:max-w-md w-full overflow-hidden">
                   <TransactionForm />
                 </DialogContent>
               </Dialog>
             </div>
-
-            {/* AI Smart Insights - Notifiche Card Discrete */}
-            {visibleInsights.length > 0 && (
-              <div className="space-y-2">
-                {visibleInsights.map((insight) => (
-                  <Card key={insight.id} className={`border-l-4 ${
-                    insight.type === 'anomaly' ? 'border-l-red-400 bg-red-50 dark:bg-red-900/10' :
-                    insight.type === 'duplicate' ? 'border-l-yellow-400 bg-yellow-50 dark:bg-yellow-900/10' :
-                    'border-l-blue-400 bg-blue-50 dark:bg-blue-900/10'
-                  } animate-fade-in`}>
-                    <CardContent className="p-3 lg:p-4">
-                      <div className="flex items-start gap-3">
-                        <span className="text-lg flex-shrink-0">{insight.icon}</span>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-semibold text-sm lg:text-base text-gray-900 dark:text-white">
-                                {insight.title}
-                              </h4>
-                              <p className="text-xs lg:text-sm text-gray-600 dark:text-gray-300 mt-1">
-                                {insight.message}
-                              </p>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => dismissInsight(insight.id)}
-                              className="p-1 h-auto flex-shrink-0"
-                            >
-                              <X className="w-4 h-4" />
-                            </Button>
-                          </div>
-                          <div className="flex flex-wrap gap-2 mt-3">
-                            {insight.actions.map((action, idx) => (
-                              <Button
-                                key={idx}
-                                size="sm"
-                                variant={idx === 0 ? "default" : "outline"}
-                                className="text-xs px-3 py-1 h-auto"
-                                onClick={() => toast({
-                                  title: `🔍 ${action}`,
-                                  description: "Funzione in fase di sviluppo."
-                                })}
-                              >
-                                {action}
-                              </Button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
 
             {/* Filters Section - Mobile Optimized */}
             <Card className="animate-fade-in">
@@ -285,8 +198,8 @@ const Transactions: React.FC = () => {
                           }`} />
                           
                           <div className="flex-1 min-w-0">
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-                              <h3 className="font-semibold text-gray-900 dark:text-white truncate">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 w-full overflow-hidden">
+                              <h3 className="font-semibold text-gray-900 dark:text-white truncate max-w-full">
                                 {transaction.description}
                               </h3>
                               <div className={`font-bold text-base flex-shrink-0 ${
@@ -297,7 +210,7 @@ const Transactions: React.FC = () => {
                               </div>
                             </div>
                             
-                            <div className="flex flex-wrap items-center text-xs lg:text-sm text-gray-500 dark:text-gray-400 mt-1 gap-1">
+                            <div className="flex flex-wrap items-center text-xs lg:text-sm text-gray-500 dark:text-gray-400 mt-1 gap-1 overflow-hidden">
                               <span>{transaction.category}</span>
                               <span className="hidden sm:inline">•</span>
                               <span>{formatDate(transaction.date)}</span>
@@ -322,7 +235,7 @@ const Transactions: React.FC = () => {
                                   <Edit className="w-3 h-3 lg:w-4 lg:h-4" />
                                 </Button>
                               </DialogTrigger>
-                              <DialogContent className="max-w-[95vw] sm:max-w-md">
+                              <DialogContent className="max-w-[95vw] sm:max-w-md w-full overflow-hidden">
                                 <div className="space-y-4">
                                   <h3 className="text-lg font-semibold">Modifica Transazione</h3>
                                   <div className="space-y-3">

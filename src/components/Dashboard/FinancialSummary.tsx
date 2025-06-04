@@ -37,9 +37,9 @@ const FinancialSummary: React.FC = () => {
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 w-full overflow-hidden">
       {/* Entrate */}
-      <Card className="bg-gradient-to-r from-success/10 to-success/5 border-success/20 hover:shadow-lg transition-all duration-200">
+      <Card className="bg-gradient-to-r from-success/10 to-success/5 border-success/20 hover:shadow-lg transition-all duration-200 overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium text-gray-700 dark:text-gray-300">
             Entrate Mensili
@@ -59,7 +59,7 @@ const FinancialSummary: React.FC = () => {
       </Card>
 
       {/* Uscite */}
-      <Card className="bg-gradient-to-r from-expense/10 to-expense/5 border-expense/20 hover:shadow-lg transition-all duration-200">
+      <Card className="bg-gradient-to-r from-expense/10 to-expense/5 border-expense/20 hover:shadow-lg transition-all duration-200 overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium text-gray-700 dark:text-gray-300">
             Spese Mensili
@@ -79,7 +79,7 @@ const FinancialSummary: React.FC = () => {
       </Card>
 
       {/* Bilancio */}
-      <Card className={`bg-gradient-to-r ${summary.balance >= 0 ? 'from-success/10 to-success/5 border-success/20' : 'from-expense/10 to-expense/5 border-expense/20'} hover:shadow-lg transition-all duration-200`}>
+      <Card className={`bg-gradient-to-r ${summary.balance >= 0 ? 'from-success/10 to-success/5 border-success/20' : 'from-expense/10 to-expense/5 border-expense/20'} hover:shadow-lg transition-all duration-200 overflow-hidden`}>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium text-gray-700 dark:text-gray-300">
             Bilancio

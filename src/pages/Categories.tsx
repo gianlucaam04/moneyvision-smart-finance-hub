@@ -1,74 +1,144 @@
-
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useFinance } from '@/contexts/FinanceContext';
+import { Category, Transaction } from '@/types';
 import Header from '@/components/Layout/Header';
 import Navigation from '@/components/Layout/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CirclePlus, Edit, Trash2, Palette, Brain, X, Target, TrendingUp } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { CirclePlus, Edit, Trash2, Palette, Target, TrendingUp, Search, SlidersHorizontal, X, CircleDollarSign, Package } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+
+// Interfacce tipizzate per la gestione delle categorie
+interface CategoryWithStats extends Category {
+  transactions: number;
+  totalAmount: number;
+}
+
+interface CategoryDialogState {
+  isOpen: boolean;
+  mode: 'add' | 'edit';
+  selectedCategory?: CategoryWithStats;
+}
+
+interface BudgetDialogState {
+  isOpen: boolean;
+  category?: CategoryWithStats;
+  budget: string;
+}
+
+interface TransactionViewState {
+  isOpen: boolean;
+  categoryName?: string;
+  transactions: Transaction[];
+}
 
 const Categories: React.FC = () => {
-  const { transactions } = useFinance();
+  const { transactions, categories: contextCategories, addCategory } = useFinance();
   const { toast } = useToast();
+
+  // Stati per la gestione delle categorie
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryColor, setNewCategoryColor] = useState('#3B82F6');
-  const [newCategoryType, setNewCategoryType] = useState('expense');
-  const [editingCategory, setEditingCategory] = useState<any>(null);
-  const [dismissedInsights, setDismissedInsights] = useState<number[]>([]);
-
-  // Mock categories con dati più realistici
-  const [categories, setCategories] = useState([
-    { id: '1', name: 'Alimentari', color: '#10B981', type: 'expense', transactions: 45, totalAmount: 1200, budget: 1500 },
-    { id: '2', name: 'Trasporti', color: '#3B82F6', type: 'expense', transactions: 23, totalAmount: 450, budget: 500 },
-    { id: '3', name: 'Intrattenimento', color: '#8B5CF6', type: 'expense', transactions: 18, totalAmount: 320, budget: 300 },
-    { id: '4', name: 'Stipendio', color: '#059669', type: 'income', transactions: 2, totalAmount: 3200, budget: null },
-    { id: '5', name: 'Bollette', color: '#EF4444', type: 'expense', transactions: 8, totalAmount: 480, budget: 500 },
-    { id: '6', name: 'Freelance', color: '#F59E0B', type: 'income', transactions: 5, totalAmount: 800, budget: null },
-  ]);
-
+  const [newCategoryIcon, setNewCategoryIcon] = useState('circle-dollar-sign');
+  const [newCategoryType, setNewCategoryType] = useState<'expense' | 'income'>('expense');
+  
+  // Stati per i dialog
+  const [categoryDialog, setCategoryDialog] = useState<CategoryDialogState>({
+    isOpen: false,
+    mode: 'add'
+  });
+  
+  const [budgetDialog, setBudgetDialog] = useState<BudgetDialogState>({
+    isOpen: false,
+    budget: ''
+  });
+  
+  const [transactionView, setTransactionView] = useState<TransactionViewState>({
+    isOpen: false,
+    transactions: []
+  });
+  
+  // Stati per filtri e ricerca
+  const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'expense' | 'income'>('all');
+  const [sortBy, setSortBy] = useState<'name' | 'transactions' | 'amount'>('name');
+  
   const colorOptions = [
     '#10B981', '#3B82F6', '#8B5CF6', '#EF4444', '#F59E0B', 
     '#06B6D4', '#84CC16', '#F97316', '#EC4899', '#6366F1'
   ];
-
-  // AI Smart Insights per categorie
-  const aiCategoryInsights = [
-    {
-      id: 1,
-      type: 'budget',
-      icon: '📊',
-      title: 'Budget Intrattenimento Superato',
-      message: 'Hai superato il budget per "Intrattenimento" del 7% questo mese (€320/€300).',
-      actions: ['Rivedi Budget', 'Riduci Spese']
-    },
-    {
-      id: 2,
-      type: 'optimization',
-      icon: '💡',
-      title: 'Nuova Categoria Suggerita',
-      message: 'Le tue spese "Varie" potrebbero essere divise in "Abbonamenti" e "Shopping".',
-      actions: ['Crea Categorie', 'Ignora']
-    },
-    {
-      id: 3,
-      type: 'trend',
-      icon: '📈',
-      title: 'Risparmio in Crescita',
-      message: 'Le spese per "Trasporti" sono diminuite del 15% grazie all\'uso dei mezzi pubblici.',
-      actions: ['Continua Così', 'Dettagli']
-    }
+  
+  const iconOptions = [
+    'circle-dollar-sign', 'credit-card', 'shopping-cart', 'home', 
+    'car', 'utensils', 'plane', 'briefcase', 'heart', 'gift'
   ];
 
-  const visibleInsights = aiCategoryInsights.filter(insight => !dismissedInsights.includes(insight.id));
+  // Calcoliamo statistiche per ogni categoria dal context
+  const categoriesWithStats = useMemo(() => {
+    return contextCategories.map(category => {
+      const categoryTransactions = transactions.filter(t => t.category === category.name);
+      const transactionCount = categoryTransactions.length;
+      const totalAmount = categoryTransactions.reduce((sum, t) => {
+        // Per le spese, sommiamo il valore assoluto perché potrebbero essere negativi
+        return category.type === 'expense' 
+          ? sum + Math.abs(t.amount) 
+          : sum + t.amount;
+      }, 0);
+      
+      return {
+        ...category,
+        transactions: transactionCount,
+        totalAmount
+      } as CategoryWithStats;
+    });
+  }, [contextCategories, transactions]);
 
-  const dismissInsight = (id: number) => {
-    setDismissedInsights(prev => [...prev, id]);
-  };
+  // Funzioni filtrate per le categorie
+  const filteredCategories = useMemo(() => {
+    let result = categoriesWithStats;
+    
+    // Applicazione filtro di ricerca
+    if (searchQuery) {
+      result = result.filter(cat => 
+        cat.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+    
+    // Filtro per tipo
+    if (typeFilter !== 'all') {
+      result = result.filter(cat => cat.type === typeFilter);
+    }
+    
+    // Ordinamento
+    result = [...result].sort((a, b) => {
+      if (sortBy === 'name') {
+        return a.name.localeCompare(b.name);
+      } else if (sortBy === 'transactions') {
+        return b.transactions - a.transactions;
+      } else { // amount
+        return b.totalAmount - a.totalAmount;
+      }
+    });
+    
+    return result;
+  }, [categoriesWithStats, searchQuery, typeFilter, sortBy]);
+  
+  // Categorie filtrate per spese e entrate
+  const expenseCategories = useMemo(() => 
+    filteredCategories.filter(cat => cat.type === 'expense'),
+    [filteredCategories]
+  );
+  
+  const incomeCategories = useMemo(() => 
+    filteredCategories.filter(cat => cat.type === 'income'),
+    [filteredCategories]
+  );
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('it-IT', {
@@ -76,55 +146,107 @@ const Categories: React.FC = () => {
       currency: 'EUR',
     }).format(amount);
   };
-
-  const handleAddCategory = () => {
-    if (newCategoryName.trim()) {
-      const newCategory = {
-        id: Date.now().toString(),
-        name: newCategoryName,
-        color: newCategoryColor,
-        type: newCategoryType,
-        transactions: 0,
-        totalAmount: 0,
-        budget: null
-      };
-      setCategories([...categories, newCategory]);
-      setNewCategoryName('');
-      setNewCategoryColor('#3B82F6');
-      setNewCategoryType('expense');
-      toast({
-        title: "✅ Categoria Creata",
-        description: `"${newCategoryName}" è stata aggiunta con successo.`,
-      });
+  
+  // Funzione per validare il nome della categoria
+  const validateCategoryName = (name: string): { valid: boolean; message?: string } => {
+    if (name.trim().length < 3) {
+      return { valid: false, message: 'Il nome deve contenere almeno 3 caratteri' };
     }
+    
+    const isDuplicate = contextCategories.some(
+      cat => cat.name.toLowerCase() === name.toLowerCase() && 
+             (categoryDialog.mode === 'add' || categoryDialog.selectedCategory?.id !== cat.id)
+    );
+    
+    if (isDuplicate) {
+      return { valid: false, message: 'Esiste già una categoria con questo nome' };
+    }
+    
+    return { valid: true };
   };
-
-  const handleEditCategory = (category: any) => {
-    setEditingCategory(category);
+  
+  // Reset del form categoria
+  const resetCategoryForm = () => {
+    setNewCategoryName('');
+    setNewCategoryColor('#3B82F6');
+    setNewCategoryIcon('circle-dollar-sign');
+    setNewCategoryType('expense');
+  };
+  
+  // Apertura dialog aggiunta categoria
+  const openAddCategoryDialog = () => {
+    resetCategoryForm();
+    setCategoryDialog({ isOpen: true, mode: 'add' });
+  };
+  
+  // Apertura dialog modifica categoria
+  const openEditCategoryDialog = (category: CategoryWithStats) => {
     setNewCategoryName(category.name);
     setNewCategoryColor(category.color);
-    setNewCategoryType(category.type);
+    setNewCategoryIcon(category.icon);
+    setNewCategoryType(category.type as 'expense' | 'income');
+    setCategoryDialog({ 
+      isOpen: true, 
+      mode: 'edit',
+      selectedCategory: category
+    });
   };
-
-  const handleUpdateCategory = () => {
-    if (editingCategory && newCategoryName.trim()) {
-      setCategories(categories.map(cat => 
-        cat.id === editingCategory.id 
-          ? { ...cat, name: newCategoryName, color: newCategoryColor, type: newCategoryType }
-          : cat
-      ));
-      setEditingCategory(null);
-      setNewCategoryName('');
-      setNewCategoryColor('#3B82F6');
-      setNewCategoryType('expense');
+  
+  // Gestione aggiunta categoria
+  const handleAddCategory = () => {
+    // Validazione
+    const validation = validateCategoryName(newCategoryName);
+    if (!validation.valid) {
       toast({
-        title: "✅ Categoria Aggiornata",
-        description: `"${newCategoryName}" è stata modificata.`,
+        title: "⚠️ Errore Validazione",
+        description: validation.message,
+        variant: "destructive"
       });
+      return;
     }
+    
+    // Aggiungi categoria al context
+    addCategory({
+      name: newCategoryName,
+      color: newCategoryColor,
+      icon: newCategoryIcon,
+      type: newCategoryType
+    });
+    
+    toast({
+      title: "✅ Categoria Creata",
+      description: `"${newCategoryName}" è stata aggiunta con successo.`,
+    });
+    
+    resetCategoryForm();
+    setCategoryDialog({ isOpen: false, mode: 'add' });
   };
-
-  const handleDeleteCategory = (category: any) => {
+  
+  // Gestione modifica categoria
+  const handleUpdateCategory = () => {
+    // Validazione
+    const validation = validateCategoryName(newCategoryName);
+    if (!validation.valid) {
+      toast({
+        title: "⚠️ Errore Validazione",
+        description: validation.message,
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // TODO: Implementare updateCategory nel context
+    toast({
+      title: "⚠️ Funzionalità in Sviluppo",
+      description: "La modifica categorie sarà disponibile a breve.",
+    });
+    
+    resetCategoryForm();
+    setCategoryDialog({ isOpen: false, mode: 'add' });
+  };
+  
+  // Gestione eliminazione categoria
+  const handleDeleteCategory = (category: CategoryWithStats) => {
     if (category.transactions > 0) {
       const confirm = window.confirm(
         `"${category.name}" ha ${category.transactions} transazioni associate. Eliminarla comunque?`
@@ -132,190 +254,141 @@ const Categories: React.FC = () => {
       if (!confirm) return;
     }
     
-    setCategories(categories.filter(cat => cat.id !== category.id));
+    // TODO: Implementare deleteCategory nel context
     toast({
-      title: "🗑️ Categoria Eliminata",
-      description: `"${category.name}" è stata rimossa.`,
+      title: "⚠️ Funzionalità in Sviluppo",
+      description: "La rimozione categorie sarà disponibile a breve.",
+    });
+  };
+  
+  // Apertura dialog budget
+  const openBudgetDialog = (category: CategoryWithStats) => {
+    setBudgetDialog({
+      isOpen: true,
+      category,
+      budget: category.budget ? category.budget.toString() : ''
+    });
+  };
+  
+  // Gestione impostazione budget
+  const handleSetBudget = () => {
+    if (!budgetDialog.category) return;
+    
+    const budgetValue = parseFloat(budgetDialog.budget);
+    if (isNaN(budgetValue) || budgetValue <= 0) {
+      toast({
+        title: "⚠️ Valore non valido",
+        description: "Inserisci un importo valido maggiore di zero.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // TODO: Implementare updateCategory nel context per aggiornare il budget
+    toast({
+      title: "⚠️ Funzionalità in Sviluppo",
+      description: "L'impostazione budget sarà disponibile a breve.",
+    });
+    
+    setBudgetDialog({ isOpen: false, budget: '' });
+  };
+  
+  // Visualizzazione transazioni per categoria
+  const viewCategoryTransactions = (categoryName: string) => {
+    const categoryTransactions = transactions
+      .filter(t => t.category === categoryName)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    
+    setTransactionView({
+      isOpen: true,
+      categoryName,
+      transactions: categoryTransactions
     });
   };
 
-  const setBudget = (categoryId: string) => {
-    const budget = prompt('Inserisci il budget mensile per questa categoria (€):');
-    if (budget && !isNaN(Number(budget))) {
-      setCategories(categories.map(cat => 
-        cat.id === categoryId 
-          ? { ...cat, budget: Number(budget) }
-          : cat
-      ));
-      toast({
-        title: "💰 Budget Impostato",
-        description: `Budget di ${formatCurrency(Number(budget))} salvato.`,
-      });
-    }
-  };
-
-  const expenseCategories = categories.filter(cat => cat.type === 'expense');
-  const incomeCategories = categories.filter(cat => cat.type === 'income');
-
+  // Renderizzazione della pagina
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <Header />
-      
       <div className="flex flex-col lg:flex-row">
         <aside className="hidden lg:block w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 min-h-screen">
           <div className="p-6">
             <Navigation />
           </div>
         </aside>
-
-        <main className="flex-1 p-4 lg:p-6 max-w-full overflow-x-hidden">
+        <main className="flex-1 p-4 lg:p-6 pb-28 max-w-full overflow-x-hidden">
           <div className="max-w-7xl mx-auto space-y-4 lg:space-y-6">
-            {/* Header Section */}
+            {/* Header e Filtri */}
             <div className="flex flex-col gap-4">
-              <div>
-                <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white animate-fade-in">
-                  Gestione Categorie
-                </h1>
-                <p className="text-sm lg:text-base text-gray-600 dark:text-gray-300 mt-1">
-                  Organizza e monitora le tue categorie di spesa e entrata
-                </p>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white animate-fade-in">
+                    Gestione Categorie
+                  </h1>
+                  <p className="text-sm lg:text-base text-gray-600 dark:text-gray-300 mt-1">
+                    Organizza e monitora le tue categorie di spesa e entrata
+                  </p>
+                </div>
+                
+                <Button 
+                  className="w-full sm:w-auto bg-gradient-to-r from-finance-blue to-finance-green hover:from-finance-blue/90 hover:to-finance-green/90 text-white"
+                  onClick={openAddCategoryDialog}
+                >
+                  <CirclePlus className="w-4 h-4 mr-2" />
+                  Nuova Categoria
+                </Button>
               </div>
               
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button className="w-full sm:w-auto bg-gradient-to-r from-finance-blue to-finance-green hover:from-finance-blue/90 hover:to-finance-green/90 text-white">
-                    <CirclePlus className="w-4 h-4 mr-2" />
-                    Nuova Categoria
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-[95vw] sm:max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>{editingCategory ? 'Modifica Categoria' : 'Nuova Categoria'}</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="categoryName">Nome Categoria</Label>
-                      <Input
-                        id="categoryName"
-                        value={newCategoryName}
-                        onChange={(e) => setNewCategoryName(e.target.value)}
-                        placeholder="Es. Alimentari, Trasporti..."
-                        className="mt-1"
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="categoryType">Tipo</Label>
-                      <Select value={newCategoryType} onValueChange={setNewCategoryType}>
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="expense">💸 Spesa</SelectItem>
-                          <SelectItem value="income">💰 Entrata</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div>
-                      <Label>Colore</Label>
-                      <div className="grid grid-cols-5 gap-2 mt-2">
-                        {colorOptions.map((color) => (
-                          <button
-                            key={color}
-                            className={`w-10 h-10 rounded-lg border-2 transition-all ${
-                              newCategoryColor === color 
-                                ? 'border-gray-900 scale-110' 
-                                : 'border-gray-300 hover:scale-105'
-                            }`}
-                            style={{ backgroundColor: color }}
-                            onClick={() => setNewCategoryColor(color)}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                    
-                    <div className="flex gap-2 pt-4">
-                      <Button 
-                        onClick={editingCategory ? handleUpdateCategory : handleAddCategory}
-                        className="flex-1"
-                      >
-                        {editingCategory ? 'Aggiorna' : 'Crea Categoria'}
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        onClick={() => {
-                          setEditingCategory(null);
-                          setNewCategoryName('');
-                          setNewCategoryColor('#3B82F6');
-                          setNewCategoryType('expense');
-                        }}
-                      >
-                        Annulla
-                      </Button>
-                    </div>
+              {/* Filtri e Ricerca */}
+              <div className="flex flex-col sm:flex-row gap-3 p-4 rounded-lg bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+                  <Input 
+                    placeholder="Cerca categorie..." 
+                    className="pl-10"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+                
+                <div className="flex flex-wrap gap-3">
+                  <div className="min-w-[140px]">
+                    <Select 
+                      value={typeFilter}
+                      onValueChange={(value: 'all' | 'expense' | 'income') => setTypeFilter(value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Filtra per tipo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tutti i tipi</SelectItem>
+                        <SelectItem value="expense">Solo spese</SelectItem>
+                        <SelectItem value="income">Solo entrate</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                </DialogContent>
-              </Dialog>
+                  
+                  <div className="min-w-[140px]">
+                    <Select 
+                      value={sortBy}
+                      onValueChange={(value: 'name' | 'transactions' | 'amount') => setSortBy(value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Ordina per" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="name">Nome</SelectItem>
+                        <SelectItem value="transactions">N. transazioni</SelectItem>
+                        <SelectItem value="amount">Importo</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {/* AI Smart Insights */}
-            {visibleInsights.length > 0 && (
-              <div className="space-y-2">
-                {visibleInsights.map((insight) => (
-                  <Card key={insight.id} className={`border-l-4 ${
-                    insight.type === 'budget' ? 'border-l-red-400 bg-red-50 dark:bg-red-900/10' :
-                    insight.type === 'optimization' ? 'border-l-blue-400 bg-blue-50 dark:bg-blue-900/10' :
-                    'border-l-green-400 bg-green-50 dark:bg-green-900/10'
-                  } animate-fade-in`}>
-                    <CardContent className="p-3 lg:p-4">
-                      <div className="flex items-start gap-3">
-                        <span className="text-lg flex-shrink-0">{insight.icon}</span>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-semibold text-sm lg:text-base text-gray-900 dark:text-white">
-                                {insight.title}
-                              </h4>
-                              <p className="text-xs lg:text-sm text-gray-600 dark:text-gray-300 mt-1">
-                                {insight.message}
-                              </p>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => dismissInsight(insight.id)}
-                              className="p-1 h-auto flex-shrink-0"
-                            >
-                              <X className="w-4 h-4" />
-                            </Button>
-                          </div>
-                          <div className="flex flex-wrap gap-2 mt-3">
-                            {insight.actions.map((action, idx) => (
-                              <Button
-                                key={idx}
-                                size="sm"
-                                variant={idx === 0 ? "default" : "outline"}
-                                className="text-xs px-3 py-1 h-auto"
-                                onClick={() => toast({
-                                  title: `🔧 ${action}`,
-                                  description: "Funzione in fase di sviluppo."
-                                })}
-                              >
-                                {action}
-                              </Button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-
             {/* Categories Overview */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 w-full overflow-hidden">
               {/* Expense Categories */}
               <Card className="animate-fade-in">
                 <CardHeader className="pb-3">
@@ -325,6 +398,22 @@ const Categories: React.FC = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
+                  {expenseCategories.length === 0 && (
+                    <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                      <Package className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                      <p>Nessuna categoria di spesa trovata</p>
+                      {searchQuery && (
+                        <Button 
+                          variant="link" 
+                          className="mt-2" 
+                          onClick={() => setSearchQuery('')}
+                        >
+                          Cancella ricerca
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                  
                   {expenseCategories.map((category) => (
                     <div key={category.id} className="p-3 lg:p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                       <div className="flex items-center gap-3">
@@ -339,7 +428,7 @@ const Categories: React.FC = () => {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleEditCategory(category)}
+                                onClick={() => openEditCategoryDialog(category)}
                                 className="p-1 h-auto"
                               >
                                 <Edit className="w-3 h-3" />
@@ -355,12 +444,15 @@ const Categories: React.FC = () => {
                             </div>
                           </div>
                           
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mt-2">
-                            <div className="text-sm text-gray-600 dark:text-gray-300">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-2 w-full">
+                            <div 
+                              className="text-sm text-gray-600 dark:text-gray-300 whitespace-normal break-words cursor-pointer hover:underline"
+                              onClick={() => viewCategoryTransactions(category.name)}
+                            >
                               {category.transactions} transazioni • {formatCurrency(category.totalAmount)}
                             </div>
                             {category.budget && (
-                              <div className={`text-xs px-2 py-1 rounded ${
+                              <div className={`text-xs px-2 py-1 rounded whitespace-nowrap ${
                                 category.totalAmount > category.budget 
                                   ? 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-300'
                                   : 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-300'
@@ -374,7 +466,7 @@ const Categories: React.FC = () => {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => setBudget(category.id)}
+                              onClick={() => openBudgetDialog(category)}
                               className="text-xs h-7"
                             >
                               <Target className="w-3 h-3 mr-1" />
@@ -397,6 +489,22 @@ const Categories: React.FC = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
+                  {incomeCategories.length === 0 && (
+                    <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                      <Package className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                      <p>Nessuna categoria di entrata trovata</p>
+                      {searchQuery && (
+                        <Button 
+                          variant="link" 
+                          className="mt-2" 
+                          onClick={() => setSearchQuery('')}
+                        >
+                          Cancella ricerca
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                  
                   {incomeCategories.map((category) => (
                     <div key={category.id} className="p-3 lg:p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                       <div className="flex items-center gap-3">
@@ -411,7 +519,7 @@ const Categories: React.FC = () => {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleEditCategory(category)}
+                                onClick={() => openEditCategoryDialog(category)}
                                 className="p-1 h-auto"
                               >
                                 <Edit className="w-3 h-3" />
@@ -427,7 +535,10 @@ const Categories: React.FC = () => {
                             </div>
                           </div>
                           
-                          <div className="text-sm text-gray-600 dark:text-gray-300 mt-2">
+                          <div 
+                            className="text-sm text-gray-600 dark:text-gray-300 whitespace-normal break-words mt-2 cursor-pointer hover:underline"
+                            onClick={() => viewCategoryTransactions(category.name)}
+                          >
                             {category.transactions} transazioni • {formatCurrency(category.totalAmount)}
                           </div>
                           
@@ -455,7 +566,7 @@ const Categories: React.FC = () => {
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                     <div className="text-xl lg:text-2xl font-bold text-blue-600">
-                      {categories.length}
+                      {filteredCategories.length}
                     </div>
                     <div className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">
                       Categorie Totali
@@ -482,7 +593,7 @@ const Categories: React.FC = () => {
                   
                   <div className="text-center p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
                     <div className="text-xl lg:text-2xl font-bold text-yellow-600">
-                      {categories.filter(cat => cat.budget).length}
+                      {filteredCategories.filter(cat => cat.budget).length}
                     </div>
                     <div className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">
                       Con Budget
@@ -499,6 +610,186 @@ const Categories: React.FC = () => {
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-2 z-50">
         <Navigation className="flex flex-row justify-around items-center space-y-0" />
       </nav>
+
+      {/* Dialog Aggiungi/Modifica Categoria */}
+      <Dialog open={categoryDialog.isOpen} onOpenChange={(open) => !open && setCategoryDialog({...categoryDialog, isOpen: false})}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {categoryDialog.mode === 'add' ? 'Aggiungi Categoria' : 'Modifica Categoria'}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="categoryName">Nome Categoria</Label>
+              <Input
+                id="categoryName"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                placeholder="Es. Alimentari, Trasporti, Stipendio..."
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Tipo</Label>
+              <Select 
+                value={newCategoryType}
+                onValueChange={(value: 'expense' | 'income') => setNewCategoryType(value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="expense">Spesa</SelectItem>
+                  <SelectItem value="income">Entrata</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Colore</Label>
+              <div className="flex flex-wrap gap-2">
+                {colorOptions.map((color) => (
+                  <div
+                    key={color}
+                    className={`w-6 h-6 rounded-full cursor-pointer ${newCategoryColor === color ? 'ring-2 ring-offset-2 ring-finance-blue' : ''}`}
+                    style={{ backgroundColor: color }}
+                    onClick={() => setNewCategoryColor(color)}
+                  />
+                ))}
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Icona</Label>
+              <Select 
+                value={newCategoryIcon}
+                onValueChange={(value: string) => setNewCategoryIcon(value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {iconOptions.map((icon) => (
+                    <SelectItem key={icon} value={icon}>
+                      {icon.replace('-', ' ')}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setCategoryDialog({...categoryDialog, isOpen: false})}
+            >
+              Annulla
+            </Button>
+            <Button 
+              onClick={categoryDialog.mode === 'add' ? handleAddCategory : handleUpdateCategory}
+            >
+              {categoryDialog.mode === 'add' ? 'Aggiungi' : 'Aggiorna'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Dialog Budget */}
+      <Dialog open={budgetDialog.isOpen} onOpenChange={(open) => !open && setBudgetDialog({...budgetDialog, isOpen: false})}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Imposta Budget {budgetDialog.category && `per "${budgetDialog.category.name}"`}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="budget">Importo Budget</Label>
+              <div className="relative">
+                <CircleDollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+                <Input
+                  id="budget"
+                  className="pl-10"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={budgetDialog.budget}
+                  onChange={(e) => setBudgetDialog({...budgetDialog, budget: e.target.value})}
+                  placeholder="0.00"
+                />
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Il budget ti aiuta a monitorare e limitare le spese per questa categoria.
+              </p>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setBudgetDialog({...budgetDialog, isOpen: false})}
+            >
+              Annulla
+            </Button>
+            <Button onClick={handleSetBudget}>
+              Conferma
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Dialog Visualizza Transazioni */}
+      <Dialog open={transactionView.isOpen} onOpenChange={(open) => !open && setTransactionView({...transactionView, isOpen: false})}>
+        <DialogContent className="max-w-3xl">
+          <div className="flex items-center justify-between">
+            <DialogHeader>
+              <DialogTitle>
+                Transazioni: {transactionView.categoryName}
+              </DialogTitle>
+            </DialogHeader>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="rounded-full h-8 w-8 p-0"
+              onClick={() => setTransactionView({...transactionView, isOpen: false})}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          
+          <div className="max-h-[60vh] overflow-y-auto">
+            {transactionView.transactions.length === 0 ? (
+              <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                <p>Nessuna transazione trovata per questa categoria.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {transactionView.transactions.map((transaction) => (
+                  <div 
+                    key={transaction.id} 
+                    className="p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="font-medium whitespace-normal break-words">{transaction.description}</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                          {new Date(transaction.date).toLocaleDateString('it-IT')}
+                        </div>
+                      </div>
+                      <div className={`font-semibold ${transaction.type === 'expense' ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                        {formatCurrency(Math.abs(transaction.amount))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

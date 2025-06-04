@@ -24,7 +24,7 @@ const SavingsGoalsCard: React.FC = () => {
   };
 
   return (
-    <Card className="hover:shadow-lg transition-all duration-200">
+    <Card className="hover:shadow-lg transition-all duration-200 overflow-hidden w-full">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
         <CardTitle className="text-lg font-semibold">Obiettivi di Risparmio</CardTitle>
         <Button 
@@ -36,7 +36,7 @@ const SavingsGoalsCard: React.FC = () => {
           Gestisci
         </Button>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 overflow-hidden w-full">
         {activeGoals.length === 0 ? (
           <div className="text-center py-8 text-gray-500 dark:text-gray-400">
             <span className="text-4xl mb-2 block">🎯</span>
@@ -54,14 +54,14 @@ const SavingsGoalsCard: React.FC = () => {
           activeGoals.map((goal) => {
             const progress = calculateProgress(goal.currentAmount, goal.targetAmount);
             return (
-              <div key={goal.id} className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
+              <div key={goal.id} className="space-y-2 w-full overflow-hidden">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 w-full overflow-hidden">
+                  <div className="flex items-center space-x-2 min-w-0 flex-1 overflow-hidden">
                     <div 
                       className="w-3 h-3 rounded-full"
                       style={{ backgroundColor: goal.color }}
                     />
-                    <span className="font-medium text-gray-900 dark:text-white">
+                    <span className="font-medium text-gray-900 dark:text-white truncate">
                       {goal.title}
                     </span>
                   </div>

@@ -19,7 +19,7 @@ const Goals: React.FC = () => {
   const [newGoalDeadline, setNewGoalDeadline] = useState('');
   const [newGoalCategory, setNewGoalCategory] = useState('saving');
   const [editingGoal, setEditingGoal] = useState<any>(null);
-  const [dismissedInsights, setDismissedInsights] = useState<number[]>([]);
+
 
   // Mock goals con dati realistici
   const [goals, setGoals] = useState([
@@ -76,39 +76,7 @@ const Goals: React.FC = () => {
     { value: 'health', label: '🏥 Salute', icon: '🏥' }
   ];
 
-  // AI Smart Insights per obiettivi
-  const aiGoalInsights = [
-    {
-      id: 1,
-      type: 'achievement',
-      icon: '🎉',
-      title: 'Obiettivo Quasi Raggiunto!',
-      message: 'Ti mancano solo €650 per completare "Vacanza Estiva". Mantieni il ritmo attuale!',
-      actions: ['Accelera', 'Mantieni Ritmo']
-    },
-    {
-      id: 2,
-      type: 'warning',
-      icon: '⚠️',
-      title: 'Ritardo nell\'Obiettivo',
-      message: 'Per raggiungere "Nuovo Laptop" entro aprile devi aumentare il contributo mensile a €200.',
-      actions: ['Aumenta Contributo', 'Estendi Scadenza']
-    },
-    {
-      id: 3,
-      type: 'suggestion',
-      icon: '💡',
-      title: 'Nuovo Obiettivo Suggerito',
-      message: 'Con il tuo attuale surplus mensile potresti aggiungere un obiettivo "Investimenti" da €3000.',
-      actions: ['Crea Obiettivo', 'Rimanda']
-    }
-  ];
 
-  const visibleInsights = aiGoalInsights.filter(insight => !dismissedInsights.includes(insight.id));
-
-  const dismissInsight = (id: number) => {
-    setDismissedInsights(prev => [...prev, id]);
-  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('it-IT', {
@@ -210,17 +178,28 @@ const Goals: React.FC = () => {
     }
   };
 
+  // Funzione migliorata per aggiungere fondi agli obiettivi
   const addFunds = (goalId: string) => {
     const amount = prompt('Inserisci l\'importo da aggiungere (€):');
-    if (amount && !isNaN(Number(amount))) {
-      setGoals(goals.map(goal => 
-        goal.id === goalId 
-          ? { ...goal, current: Math.min(goal.current + Number(amount), goal.target) }
-          : goal
-      ));
+    if (amount && !isNaN(Number(amount)) && Number(amount) > 0) {
+      const numAmount = Number(amount);
+      setGoals(goals.map(goal => {
+        if (goal.id === goalId) {
+          // Limita l'importo al target se necessario
+          const newCurrent = Math.min(goal.current + numAmount, goal.target);
+          return { ...goal, current: newCurrent };
+        }
+        return goal;
+      }));
+      
       toast({
         title: "💰 Fondi Aggiunti",
-        description: `${formatCurrency(Number(amount))} aggiunti con successo.`,
+        description: `${formatCurrency(numAmount)} aggiunti con successo all'obiettivo.`,
+      });
+    } else if (amount && (!isNaN(Number(amount)) && Number(amount) <= 0)) {
+      toast({
+        title: "⚠️ Importo non valido",
+        description: "L'importo deve essere maggiore di zero.",
       });
     }
   };
@@ -229,167 +208,160 @@ const Goals: React.FC = () => {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <Header />
       
-      <div className="flex flex-col lg:flex-row">
-        <aside className="hidden lg:block w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 min-h-screen">
-          <div className="p-6">
-            <Navigation />
-          </div>
+      <div className="flex min-h-screen">
+        <aside className="hidden lg:block w-56 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 p-4">
+          <Navigation className="flex-col space-y-1" />
         </aside>
-
-        <main className="flex-1 p-4 lg:p-6 max-w-full overflow-x-hidden">
-          <div className="max-w-7xl mx-auto space-y-4 lg:space-y-6">
+        <main className="flex-1 overflow-auto">
+          <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+            <div className="flex items-center gap-2">
+              <Target className="h-5 w-5 text-finance-blue" />
+              <h1 className="text-xl font-bold">Obiettivi di Risparmio</h1>
+            </div>
+          </div>
+          <div className="p-4 pb-24 lg:pb-4 max-w-6xl mx-auto space-y-6">
+            {/* Quick Stats */}
+            <Card className="animate-fade-in">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center text-lg lg:text-xl">
+                  <Target className="w-5 h-5 mr-2" />
+                  Statistiche Obiettivi
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <div className="text-xl lg:text-2xl font-bold text-blue-600">
+                      {goals.length}
+                    </div>
+                    <div className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">
+                      Obiettivi Totali
+                    </div>
+                  </div>
+                  
+                  <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                    <div className="text-xl lg:text-2xl font-bold text-green-600">
+                      {goals.filter(goal => getProgress(goal.current, goal.target) >= 100).length}
+                    </div>
+                    <div className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">
+                      Completati
+                    </div>
+                  </div>
+                  
+                  <div className="text-center p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                    <div className="text-xl lg:text-2xl font-bold text-yellow-600">
+                      {goals.filter(goal => {
+                        const days = getDaysRemaining(goal.deadline);
+                        return days <= 30 && days > 0;
+                      }).length}
+                    </div>
+                    <div className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">
+                      In Scadenza
+                    </div>
+                  </div>
+                  
+                  <div className="text-center p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                    <div className="text-xl lg:text-2xl font-bold text-purple-600">
+                      {formatCurrency(goals.reduce((sum, goal) => sum + goal.current, 0))}
+                    </div>
+                    <div className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">
+                      Totale Risparmiato
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
             {/* Header Section */}
             <div className="flex flex-col gap-4">
               <div>
-                <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white animate-fade-in">
-                  Obiettivi di Risparmio
-                </h1>
-                <p className="text-sm lg:text-base text-gray-600 dark:text-gray-300 mt-1">
-                  Monitora i tuoi progressi verso i traguardi finanziari
+                <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center">
+                  <Target className="h-6 w-6 text-finance-blue mr-2" />
+                  I Tuoi Obiettivi di Risparmio
+                </h2>
+                <p className="text-gray-600 dark:text-gray-300 mt-1">
+                  Monitora i tuoi progressi e risparmia per realizzare i tuoi sogni.
                 </p>
               </div>
-              
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button className="w-full sm:w-auto bg-gradient-to-r from-finance-blue to-finance-green hover:from-finance-blue/90 hover:to-finance-green/90 text-white">
-                    <CirclePlus className="w-4 h-4 mr-2" />
-                    Nuovo Obiettivo
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-[95vw] sm:max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>{editingGoal ? 'Modifica Obiettivo' : 'Nuovo Obiettivo'}</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="goalName">Nome Obiettivo</Label>
-                      <Input
-                        id="goalName"
-                        value={newGoalName}
-                        onChange={(e) => setNewGoalName(e.target.value)}
-                        placeholder="Es. Vacanza estiva, Auto nuova..."
-                        className="mt-1"
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="goalTarget">Importo Obiettivo (€)</Label>
-                      <Input
-                        id="goalTarget"
-                        type="number"
-                        value={newGoalTarget}
-                        onChange={(e) => setNewGoalTarget(e.target.value)}
-                        placeholder="1000"
-                        className="mt-1"
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="goalDeadline">Scadenza</Label>
-                      <Input
-                        id="goalDeadline"
-                        type="date"
-                        value={newGoalDeadline}
-                        onChange={(e) => setNewGoalDeadline(e.target.value)}
-                        className="mt-1"
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="goalCategory">Categoria</Label>
-                      <Select value={newGoalCategory} onValueChange={setNewGoalCategory}>
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {categoryOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div className="flex gap-2 pt-4">
-                      <Button 
-                        onClick={editingGoal ? handleUpdateGoal : handleAddGoal}
-                        className="flex-1"
-                      >
-                        {editingGoal ? 'Aggiorna' : 'Crea Obiettivo'}
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        onClick={() => {
-                          setEditingGoal(null);
-                          setNewGoalName('');
-                          setNewGoalTarget('');
-                          setNewGoalDeadline('');
-                          setNewGoalCategory('saving');
-                        }}
-                      >
-                        Annulla
-                      </Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
 
-            {/* AI Smart Insights */}
-            {visibleInsights.length > 0 && (
-              <div className="space-y-2">
-                {visibleInsights.map((insight) => (
-                  <Card key={insight.id} className={`border-l-4 ${
-                    insight.type === 'achievement' ? 'border-l-green-400 bg-green-50 dark:bg-green-900/10' :
-                    insight.type === 'warning' ? 'border-l-yellow-400 bg-yellow-50 dark:bg-yellow-900/10' :
-                    'border-l-blue-400 bg-blue-50 dark:bg-blue-900/10'
-                  } animate-fade-in`}>
-                    <CardContent className="p-3 lg:p-4">
-                      <div className="flex items-start gap-3">
-                        <span className="text-lg flex-shrink-0">{insight.icon}</span>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-semibold text-sm lg:text-base text-gray-900 dark:text-white">
-                                {insight.title}
-                              </h4>
-                              <p className="text-xs lg:text-sm text-gray-600 dark:text-gray-300 mt-1">
-                                {insight.message}
-                              </p>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => dismissInsight(insight.id)}
-                              className="p-1 h-auto flex-shrink-0"
-                            >
-                              <X className="w-4 h-4" />
-                            </Button>
-                          </div>
-                          <div className="flex flex-wrap gap-2 mt-3">
-                            {insight.actions.map((action, idx) => (
-                              <Button
-                                key={idx}
-                                size="sm"
-                                variant={idx === 0 ? "default" : "outline"}
-                                className="text-xs px-3 py-1 h-auto"
-                                onClick={() => toast({
-                                  title: `🎯 ${action}`,
-                                  description: "Funzione in fase di sviluppo."
-                                })}
-                              >
-                                {action}
-                              </Button>
-                            ))}
-                          </div>
-                        </div>
+              {/* Actions Row */}
+              <div className="flex justify-between items-center flex-wrap gap-3">
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button className="flex items-center gap-2 bg-finance-blue hover:bg-finance-blue/90">
+                      <CirclePlus size={18} />
+                      Nuovo Obiettivo
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Crea Nuovo Obiettivo di Risparmio</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="name">Nome dell'obiettivo</Label>
+                        <Input
+                          id="name" 
+                          placeholder="es. Vacanza, Auto Nuova..."
+                          value={newGoalName}
+                          onChange={(e) => setNewGoalName(e.target.value)}
+                        />
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      <div className="space-y-2">
+                        <Label htmlFor="target">Importo obiettivo (€)</Label>
+                        <Input
+                          id="target"
+                          type="number"
+                          placeholder="1000"
+                          value={newGoalTarget}
+                          onChange={(e) => setNewGoalTarget(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="deadline">Data obiettivo</Label>
+                        <Input
+                          id="deadline"
+                          type="date"
+                          value={newGoalDeadline}
+                          onChange={(e) => setNewGoalDeadline(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="category">Categoria</Label>
+                        <Select value={newGoalCategory} onValueChange={setNewGoalCategory}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seleziona categoria" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {categoryOptions.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                <span className="flex items-center gap-2">
+                                  <span>{option.icon}</span>
+                                  <span>{option.label}</span>
+                                </span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-3">
+                      <DialogTrigger asChild>
+                        <Button variant="outline">Annulla</Button>
+                      </DialogTrigger>
+                      <Button 
+                        onClick={handleAddGoal} 
+                        className="bg-finance-blue hover:bg-finance-blue/90"
+                      >
+                        Salva Obiettivo
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+
+
               </div>
-            )}
+            </div>
 
             {/* Goals Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
@@ -505,9 +477,11 @@ const Goals: React.FC = () => {
                           size="sm"
                           onClick={() => toast({
                             title: "📊 Dettagli Obiettivo",
-                            description: `Stai visualizzando i dettagli di "${goal.name}".`
+                            description: `"${goal.name}" - Creato il ${new Date().toLocaleDateString('it-IT')}\nRisparmiati: ${formatCurrency(goal.current)}\nMancanti: ${formatCurrency(goal.target - goal.current)}\nContributo mensile: ${formatCurrency(goal.monthlyContribution)}`
                           })}
+                          className="flex items-center gap-1"
                         >
+                          <Target className="w-3.5 h-3.5" />
                           Dettagli
                         </Button>
                       </div>
@@ -527,63 +501,14 @@ const Goals: React.FC = () => {
               })}
             </div>
 
-            {/* Quick Stats */}
-            <Card className="animate-fade-in">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center text-lg lg:text-xl">
-                  <Target className="w-5 h-5 mr-2" />
-                  Statistiche Obiettivi
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                    <div className="text-xl lg:text-2xl font-bold text-blue-600">
-                      {goals.length}
-                    </div>
-                    <div className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">
-                      Obiettivi Totali
-                    </div>
-                  </div>
-                  
-                  <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                    <div className="text-xl lg:text-2xl font-bold text-green-600">
-                      {goals.filter(goal => getProgress(goal.current, goal.target) >= 100).length}
-                    </div>
-                    <div className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">
-                      Completati
-                    </div>
-                  </div>
-                  
-                  <div className="text-center p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-                    <div className="text-xl lg:text-2xl font-bold text-yellow-600">
-                      {goals.filter(goal => {
-                        const days = getDaysRemaining(goal.deadline);
-                        return days <= 30 && days > 0;
-                      }).length}
-                    </div>
-                    <div className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">
-                      In Scadenza
-                    </div>
-                  </div>
-                  
-                  <div className="text-center p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                    <div className="text-xl lg:text-2xl font-bold text-purple-600">
-                      {formatCurrency(goals.reduce((sum, goal) => sum + goal.current, 0))}
-                    </div>
-                    <div className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">
-                      Totale Risparmiato
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Spazio aggiuntivo per il footer */}
+            <div className="mb-24 lg:mb-0"></div>
           </div>
         </main>
       </div>
 
       {/* Mobile Navigation */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-2 z-50">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-gray-800/95 backdrop-blur-lg border-t border-gray-200 dark:border-gray-700 z-50 overflow-hidden">
         <Navigation className="flex flex-row justify-around items-center space-y-0" />
       </nav>
     </div>

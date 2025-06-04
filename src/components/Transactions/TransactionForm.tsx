@@ -74,7 +74,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onSuccess }) => {
   );
 
   return (
-    <Card className="w-full max-w-md mx-auto">
+    <Card className="w-full max-w-md mx-auto overflow-hidden">
       <CardHeader>
         <CardTitle className="text-xl font-semibold text-center">
           Nuova Transazione
