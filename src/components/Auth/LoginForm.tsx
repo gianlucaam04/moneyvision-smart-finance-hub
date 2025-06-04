@@ -6,10 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
+import ForgotPassword from './ForgotPassword';
 
 const LoginForm: React.FC = () => {
   const [email, setEmail] = useState('demo@moneyvision.app');
   const [password, setPassword] = useState('demo123');
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const { login, isLoading } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -29,6 +31,14 @@ const LoginForm: React.FC = () => {
       });
     }
   };
+
+  if (showForgotPassword) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-finance-blue/20 via-white to-finance-green/20 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center p-4">
+        <ForgotPassword onBackToLogin={() => setShowForgotPassword(false)} />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-finance-blue/20 via-white to-finance-green/20 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center p-4">
@@ -80,6 +90,17 @@ const LoginForm: React.FC = () => {
             >
               {isLoading ? 'Accesso in corso...' : 'Accedi'}
             </Button>
+            
+            <div className="text-center">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setShowForgotPassword(true)}
+                className="text-sm text-finance-blue hover:text-finance-blue/80"
+              >
+                Password dimenticata?
+              </Button>
+            </div>
           </form>
 
           <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">

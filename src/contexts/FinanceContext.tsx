@@ -40,6 +40,39 @@ const defaultCategories: Omit<Category, 'id'>[] = [
   { name: 'Intrattenimento', color: '#8B5CF6', icon: 'circle-minus', type: 'expense', budget: 150 },
 ];
 
+// Mapping functions to convert database types to interface types
+const mapDbCategory = (dbCategory: any): Category => ({
+  id: dbCategory.id,
+  name: dbCategory.name,
+  color: dbCategory.color,
+  icon: dbCategory.icon,
+  type: dbCategory.type as 'income' | 'expense' | 'both',
+  budget: dbCategory.budget || undefined
+});
+
+const mapDbTransaction = (dbTransaction: any): Transaction => ({
+  id: dbTransaction.id,
+  amount: Number(dbTransaction.amount),
+  description: dbTransaction.description,
+  category: dbTransaction.category,
+  type: dbTransaction.type as 'income' | 'expense',
+  date: dbTransaction.date,
+  note: dbTransaction.note || undefined,
+  createdAt: dbTransaction.created_at,
+  updatedAt: dbTransaction.updated_at
+});
+
+const mapDbSavingsGoal = (dbGoal: any): SavingsGoal => ({
+  id: dbGoal.id,
+  title: dbGoal.title,
+  targetAmount: Number(dbGoal.target_amount),
+  currentAmount: Number(dbGoal.current_amount),
+  deadline: dbGoal.deadline || undefined,
+  color: dbGoal.color,
+  description: dbGoal.description || undefined,
+  isCompleted: dbGoal.is_completed
+});
+
 export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isAuthenticated } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -86,7 +119,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         if (categoriesData.length === 0) {
           await createDefaultCategories();
         } else {
-          setCategories(categoriesData);
+          setCategories(categoriesData.map(mapDbCategory));
         }
       }
 
@@ -100,7 +133,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (transactionsError) {
         console.error('Error loading transactions:', transactionsError);
       } else {
-        setTransactions(transactionsData || []);
+        setTransactions((transactionsData || []).map(mapDbTransaction));
       }
 
       // Load savings goals
@@ -113,7 +146,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (goalsError) {
         console.error('Error loading goals:', goalsError);
       } else {
-        setSavingsGoals(goalsData || []);
+        setSavingsGoals((goalsData || []).map(mapDbSavingsGoal));
       }
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -144,7 +177,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (error) {
         console.error('Error creating default categories:', error);
       } else {
-        setCategories(data || []);
+        setCategories((data || []).map(mapDbCategory));
       }
     } catch (error) {
       console.error('Error creating default categories:', error);
@@ -213,7 +246,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return;
       }
 
-      setTransactions(prev => [data, ...prev]);
+      setTransactions(prev => [mapDbTransaction(data), ...prev]);
       toast({
         title: "Successo",
         description: "Transazione aggiunta con successo",
@@ -245,7 +278,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return;
       }
 
-      setTransactions(prev => prev.map(t => t.id === id ? data : t));
+      setTransactions(prev => prev.map(t => t.id === id ? mapDbTransaction(data) : t));
       toast({
         title: "Successo",
         description: "Transazione aggiornata con successo",
@@ -308,7 +341,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return;
       }
 
-      setCategories(prev => [...prev, data]);
+      setCategories(prev => [...prev, mapDbCategory(data)]);
       toast({
         title: "Successo",
         description: "Categoria aggiunta con successo",
@@ -340,7 +373,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return;
       }
 
-      setCategories(prev => prev.map(c => c.id === id ? data : c));
+      setCategories(prev => prev.map(c => c.id === id ? mapDbCategory(data) : c));
       toast({
         title: "Successo",
         description: "Categoria aggiornata con successo",
@@ -384,12 +417,20 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (!user) return;
 
     try {
+      const dbGoalData = {
+        title: goalData.title,
+        target_amount: goalData.targetAmount,
+        current_amount: goalData.currentAmount || 0,
+        deadline: goalData.deadline || null,
+        color: goalData.color,
+        description: goalData.description || null,
+        is_completed: goalData.isCompleted || false,
+        user_id: user.id
+      };
+
       const { data, error } = await supabase
         .from('savings_goals')
-        .insert({
-          ...goalData,
-          user_id: user.id
-        })
+        .insert(dbGoalData)
         .select()
         .single();
 
@@ -403,7 +444,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return;
       }
 
-      setSavingsGoals(prev => [...prev, data]);
+      setSavingsGoals(prev => [...prev, mapDbSavingsGoal(data)]);
       toast({
         title: "Successo",
         description: "Obiettivo aggiunto con successo",
@@ -444,7 +485,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return;
       }
 
-      setSavingsGoals(prev => prev.map(g => g.id === id ? data : g));
+      setSavingsGoals(prev => prev.map(g => g.id === id ? mapDbSavingsGoal(data) : g));
       toast({
         title: "Successo",
         description: "Obiettivo aggiornato con successo",

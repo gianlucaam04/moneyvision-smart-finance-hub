@@ -6,6 +6,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { FinanceProvider } from "@/contexts/FinanceContext";
+import PrivateRoute from "@/components/Auth/PrivateRoute";
+import OnboardingDialog from "@/components/Auth/OnboardingDialog";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import Transactions from "./pages/Transactions";
@@ -27,14 +29,39 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/transactions" element={<Transactions />} />
-              <Route path="/categories" element={<Categories />} />
-              <Route path="/goals" element={<Goals />} />
-              <Route path="/analytics" element={<Analytics />} />
-              <Route path="/settings" element={<Settings />} />
+              <Route path="/dashboard" element={
+                <PrivateRoute>
+                  <Dashboard />
+                </PrivateRoute>
+              } />
+              <Route path="/transactions" element={
+                <PrivateRoute>
+                  <Transactions />
+                </PrivateRoute>
+              } />
+              <Route path="/categories" element={
+                <PrivateRoute>
+                  <Categories />
+                </PrivateRoute>
+              } />
+              <Route path="/goals" element={
+                <PrivateRoute>
+                  <Goals />
+                </PrivateRoute>
+              } />
+              <Route path="/analytics" element={
+                <PrivateRoute>
+                  <Analytics />
+                </PrivateRoute>
+              } />
+              <Route path="/settings" element={
+                <PrivateRoute>
+                  <Settings />
+                </PrivateRoute>
+              } />
               <Route path="*" element={<NotFound />} />
             </Routes>
+            <OnboardingDialog />
           </BrowserRouter>
         </FinanceProvider>
       </AuthProvider>
