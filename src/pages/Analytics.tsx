@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useMemo, Suspense } from 'react';
 import { useFinance } from '@/contexts/FinanceContext';
 import Header from '@/components/Layout/Header';
 import Navigation from '@/components/Layout/Navigation';
@@ -9,11 +8,82 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { TrendingUp, TrendingDown, DollarSign, Calendar, Target, PieChart as PieChartIcon } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 
 const Analytics: React.FC = () => {
-  const { transactions, summary } = useFinance();
-  const [timeRange, setTimeRange] = useState('thisMonth');
+  const { transactions, categories, summary } = useFinance();
+  const [timeRange, setTimeRange] = useState<'thisMonth' | 'last3Months' | 'thisYear' | 'custom'>('thisMonth');
+  const [startDate, setStartDate] = useState<Date>(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+  const [endDate, setEndDate] = useState<Date>(new Date());
 
+  // Compute period bounds
+  const { start, end } = useMemo(() => {
+    const now = new Date();
+    let start: Date, end: Date;
+    if (timeRange === 'thisMonth') {
+      start = new Date(now.getFullYear(), now.getMonth(), 1);
+      end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    } else if (timeRange === 'last3Months') {
+      end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      start = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+    } else if (timeRange === 'thisYear') {
+      start = new Date(now.getFullYear(), 0, 1);
+      end = new Date(now.getFullYear(), 11, 31);
+    } else { // custom
+      start = startDate;
+      end = endDate;
+    }
+    return { start, end };
+  }, [timeRange, startDate, endDate]);
+
+  // Filtered transactions
+  const filteredTx = useMemo(() =>
+    transactions.filter(t => {
+      const d = new Date(t.date);
+      return d >= start && d <= end;
+    }), [transactions, start, end]
+  );
+
+  // Summary metrics
+  const totalIncomeLocal = useMemo(() =>
+    filteredTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
+  , [filteredTx]);
+  const totalExpensesLocal = useMemo(() =>
+    filteredTx.filter(t => t.type === 'expense').reduce((s, t) => s + Math.abs(t.amount), 0)
+  , [filteredTx]);
+  const balanceLocal = totalIncomeLocal - totalExpensesLocal;
+
+  // Monthly data
+  const monthLabels = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
+  const monthlyData = useMemo(() => {
+    const data: any[] = [];
+    const st = new Date(start.getFullYear(), start.getMonth(), 1);
+    const en = new Date(end.getFullYear(), end.getMonth(), 1);
+    for (let d = new Date(st); d <= en; d.setMonth(d.getMonth() + 1)) {
+      const m = new Date(d);
+      const txs = filteredTx.filter(t => {
+        const dt = new Date(t.date);
+        return dt.getMonth() === m.getMonth() && dt.getFullYear() === m.getFullYear();
+      });
+      const income = txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+      const expenses = txs.filter(t => t.type === 'expense').reduce((s, t) => s + Math.abs(t.amount), 0);
+      data.push({ month: monthLabels[m.getMonth()], income, expenses, savings: income - expenses });
+    }
+    return data;
+  }, [filteredTx, start, end]);
+
+  // Category data for pie
+  const categoryData = useMemo(() =>
+    categories.filter(c => c.type === 'expense').map(c => ({
+      name: c.name,
+      value: filteredTx.filter(t => t.category === c.name && t.type === 'expense')
+        .reduce((s, t) => s + Math.abs(t.amount), 0),
+      color: c.color
+    })), [categories, filteredTx]
+  );
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('it-IT', {
@@ -21,26 +91,6 @@ const Analytics: React.FC = () => {
       currency: 'EUR',
     }).format(amount);
   };
-
-
-
-  // Mock data ottimizzato per mobile
-  const monthlyData = [
-    { month: 'Gen', income: 3200, expenses: 2800, savings: 400 },
-    { month: 'Feb', income: 3400, expenses: 2900, savings: 500 },
-    { month: 'Mar', income: 3100, expenses: 2700, savings: 400 },
-    { month: 'Apr', income: 3500, expenses: 3100, savings: 400 },
-    { month: 'Mag', income: 3300, expenses: 2850, savings: 450 },
-    { month: 'Giu', income: 3600, expenses: 3200, savings: 400 },
-  ];
-
-  const categoryData = [
-    { name: 'Alimentari', value: 800, color: '#10B981' },
-    { name: 'Trasporti', value: 400, color: '#3B82F6' },
-    { name: 'Svago', value: 300, color: '#8B5CF6' },
-    { name: 'Bollette', value: 500, color: '#EF4444' },
-    { name: 'Altro', value: 200, color: '#6B7280' },
-  ];
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -66,7 +116,10 @@ const Analytics: React.FC = () => {
                 </p>
               </div>
               
-              <Select value={timeRange} onValueChange={setTimeRange}>
+              <Select
+                value={timeRange}
+                onValueChange={(value) => setTimeRange(value as 'thisMonth' | 'last3Months' | 'thisYear' | 'custom')}
+              >
                 <SelectTrigger className="w-full sm:w-48">
                   <Calendar className="w-4 h-4 mr-2" />
                   <SelectValue />
@@ -78,9 +131,24 @@ const Analytics: React.FC = () => {
                   <SelectItem value="custom">Personalizzato</SelectItem>
                 </SelectContent>
               </Select>
+
+              {timeRange === 'custom' && (
+                <div className="flex flex-col sm:flex-row gap-2 mt-2">
+                  <Input
+                    type="date"
+                    value={startDate.toISOString().slice(0, 10)}
+                    onChange={(e) => setStartDate(new Date(e.target.value))}
+                    aria-label="Data inizio"
+                  />
+                  <Input
+                    type="date"
+                    value={endDate.toISOString().slice(0, 10)}
+                    onChange={(e) => setEndDate(new Date(e.target.value))}
+                    aria-label="Data fine"
+                  />
+                </div>
+              )}
             </div>
-
-
 
             {/* Key Metrics - Mobile Optimized Grid */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6 animate-fade-in">
@@ -89,7 +157,7 @@ const Analytics: React.FC = () => {
                   <div className="text-center lg:text-left">
                     <p className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">Bilancio</p>
                     <p className="text-lg lg:text-2xl font-bold text-gray-900 dark:text-white truncate">
-                      {formatCurrency(summary?.balance || 0)}
+                      {formatCurrency(balanceLocal)}
                     </p>
                     <div className="flex items-center justify-center lg:justify-start mt-1">
                       <TrendingUp className="w-3 h-3 lg:w-4 lg:h-4 text-success mr-1" />
@@ -104,7 +172,7 @@ const Analytics: React.FC = () => {
                   <div className="text-center lg:text-left">
                     <p className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">Entrate</p>
                     <p className="text-lg lg:text-2xl font-bold text-success truncate">
-                      {formatCurrency(summary?.totalIncome || 0)}
+                      {formatCurrency(totalIncomeLocal)}
                     </p>
                     <div className="flex items-center justify-center lg:justify-start mt-1">
                       <span className="text-xs text-gray-500">📈 Mensili</span>
@@ -118,7 +186,7 @@ const Analytics: React.FC = () => {
                   <div className="text-center lg:text-left">
                     <p className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">Uscite</p>
                     <p className="text-lg lg:text-2xl font-bold text-expense truncate">
-                      {formatCurrency(summary?.totalExpenses || 0)}
+                      {formatCurrency(totalExpensesLocal)}
                     </p>
                     <div className="flex items-center justify-center lg:justify-start mt-1">
                       <span className="text-xs text-gray-500">📉 Mensili</span>
@@ -132,7 +200,7 @@ const Analytics: React.FC = () => {
                   <div className="text-center lg:text-left">
                     <p className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">Risparmio</p>
                     <p className="text-lg lg:text-2xl font-bold text-finance-green">
-                      {summary ? ((summary.totalIncome - summary.totalExpenses) / summary.totalIncome * 100).toFixed(1) : '0'}%
+                      {(totalIncomeLocal - totalExpensesLocal) / totalIncomeLocal * 100}.toFixed(1)%
                     </p>
                     <div className="flex items-center justify-center lg:justify-start mt-1">
                       <span className="text-xs text-gray-500">🎯 Obiettivo 20%</span>
@@ -225,7 +293,7 @@ const Analytics: React.FC = () => {
                             <div className="text-right">
                               <div className="font-semibold text-sm lg:text-base">{formatCurrency(category.value)}</div>
                               <div className="text-xs lg:text-sm text-gray-500">
-                                {((category.value / categoryData.reduce((sum, cat) => sum + cat.value, 0)) * 100).toFixed(1)}%
+                                {(category.value / categoryData.reduce((sum, cat) => sum + cat.value, 0)) * 100}.toFixed(1)%
                               </div>
                             </div>
                           </div>
@@ -328,6 +396,54 @@ const Analytics: React.FC = () => {
                     </div>
                   </CardContent>
                 </Card>
+                <Suspense fallback={<div>Loading...</div>}>
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg lg:text-xl">Line Chart</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-64 lg:h-96 w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={monthlyData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="month" fontSize={12} />
+                            <YAxis fontSize={12} />
+                            <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                            <Line type="monotone" dataKey="income" stroke="#10B981" strokeWidth={2} name="Entrate" />
+                            <Line type="monotone" dataKey="expenses" stroke="#EF4444" strokeWidth={2} name="Uscite" />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg lg:text-xl">Pie Chart</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-48 lg:h-64 w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={categoryData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={40}
+                              outerRadius={80}
+                              paddingAngle={5}
+                              dataKey="value"
+                            >
+                              {categoryData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} />
+                              ))}
+                            </Pie>
+                            <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Suspense>
               </TabsContent>
             </Tabs>
           </div>

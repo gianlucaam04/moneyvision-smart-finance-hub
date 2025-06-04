@@ -13,6 +13,8 @@ import { CirclePlus, Edit, Trash2, Palette, Target, TrendingUp, Search, SlidersH
 import { useToast } from '@/components/ui/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import FilterBar from '@/components/Categories/FilterBar';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 // Interfacce tipizzate per la gestione delle categorie
 interface CategoryWithStats extends Category {
@@ -38,8 +40,23 @@ interface TransactionViewState {
   transactions: Transaction[];
 }
 
+interface ConfirmDialogState {
+  isOpen: boolean;
+  category?: CategoryWithStats;
+}
+
+// Hook per debounce
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+  return debouncedValue;
+}
+
 const Categories: React.FC = () => {
-  const { transactions, categories: contextCategories, addCategory } = useFinance();
+  const { transactions, categories: contextCategories, addCategory, updateCategory, deleteCategory } = useFinance();
   const { toast } = useToast();
 
   // Stati per la gestione delle categorie
@@ -64,11 +81,27 @@ const Categories: React.FC = () => {
     transactions: []
   });
   
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState>({
+    isOpen: false,
+  });
+  
   // Stati per filtri e ricerca
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [typeFilter, setTypeFilter] = useState<'all' | 'expense' | 'income'>('all');
   const [sortBy, setSortBy] = useState<'name' | 'transactions' | 'amount'>('name');
   
+  const highlightCategoryName = (name: string) => {
+    if (!debouncedSearchQuery) return name;
+    const escaped = debouncedSearchQuery.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escaped})`, 'gi');
+    return name.split(regex).map((part, i) =>
+      regex.test(part)
+        ? <mark key={i} className="bg-yellow-200 dark:bg-yellow-700 px-0.5">{part}</mark>
+        : <span key={i}>{part}</span>
+    );
+  };
+
   const colorOptions = [
     '#10B981', '#3B82F6', '#8B5CF6', '#EF4444', '#F59E0B', 
     '#06B6D4', '#84CC16', '#F97316', '#EC4899', '#6366F1'
@@ -104,9 +137,9 @@ const Categories: React.FC = () => {
     let result = categoriesWithStats;
     
     // Applicazione filtro di ricerca
-    if (searchQuery) {
+    if (debouncedSearchQuery) {
       result = result.filter(cat => 
-        cat.name.toLowerCase().includes(searchQuery.toLowerCase())
+        cat.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase())
       );
     }
     
@@ -127,7 +160,7 @@ const Categories: React.FC = () => {
     });
     
     return result;
-  }, [categoriesWithStats, searchQuery, typeFilter, sortBy]);
+  }, [categoriesWithStats, debouncedSearchQuery, typeFilter, sortBy]);
   
   // Categorie filtrate per spese e entrate
   const expenseCategories = useMemo(() => 
@@ -224,7 +257,6 @@ const Categories: React.FC = () => {
   
   // Gestione modifica categoria
   const handleUpdateCategory = () => {
-    // Validazione
     const validation = validateCategoryName(newCategoryName);
     if (!validation.valid) {
       toast({
@@ -234,31 +266,37 @@ const Categories: React.FC = () => {
       });
       return;
     }
-    
-    // TODO: Implementare updateCategory nel context
-    toast({
-      title: "⚠️ Funzionalità in Sviluppo",
-      description: "La modifica categorie sarà disponibile a breve.",
-    });
-    
+    if (categoryDialog.selectedCategory) {
+      updateCategory(categoryDialog.selectedCategory.id, {
+        name: newCategoryName,
+        color: newCategoryColor,
+        icon: newCategoryIcon,
+        type: newCategoryType
+      });
+      toast({
+        title: "✅ Categoria Aggiornata",
+        description: `"${newCategoryName}" modificata con successo.`
+      });
+    }
     resetCategoryForm();
     setCategoryDialog({ isOpen: false, mode: 'add' });
   };
   
   // Gestione eliminazione categoria
   const handleDeleteCategory = (category: CategoryWithStats) => {
-    if (category.transactions > 0) {
-      const confirm = window.confirm(
-        `"${category.name}" ha ${category.transactions} transazioni associate. Eliminarla comunque?`
-      );
-      if (!confirm) return;
+    setConfirmDialog({ isOpen: true, category });
+  };
+  
+  // Conferma eliminazione
+  const handleConfirmDelete = () => {
+    if (confirmDialog.category) {
+      deleteCategory(confirmDialog.category.id);
+      toast({
+        title: "✅ Categoria Rimossa",
+        description: `"${confirmDialog.category.name}" è stata eliminata.`
+      });
     }
-    
-    // TODO: Implementare deleteCategory nel context
-    toast({
-      title: "⚠️ Funzionalità in Sviluppo",
-      description: "La rimozione categorie sarà disponibile a breve.",
-    });
+    setConfirmDialog({ isOpen: false });
   };
   
   // Apertura dialog budget
@@ -273,7 +311,6 @@ const Categories: React.FC = () => {
   // Gestione impostazione budget
   const handleSetBudget = () => {
     if (!budgetDialog.category) return;
-    
     const budgetValue = parseFloat(budgetDialog.budget);
     if (isNaN(budgetValue) || budgetValue <= 0) {
       toast({
@@ -283,13 +320,11 @@ const Categories: React.FC = () => {
       });
       return;
     }
-    
-    // TODO: Implementare updateCategory nel context per aggiornare il budget
+    updateCategory(budgetDialog.category.id, { budget: budgetValue });
     toast({
-      title: "⚠️ Funzionalità in Sviluppo",
-      description: "L'impostazione budget sarà disponibile a breve.",
+      title: "✅ Budget Aggiornato",
+      description: `Budget impostato a ${formatCurrency(budgetValue)} per "${budgetDialog.category.name}"`
     });
-    
     setBudgetDialog({ isOpen: false, budget: '' });
   };
   
@@ -340,51 +375,14 @@ const Categories: React.FC = () => {
               </div>
               
               {/* Filtri e Ricerca */}
-              <div className="flex flex-col sm:flex-row gap-3 p-4 rounded-lg bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
-                  <Input 
-                    placeholder="Cerca categorie..." 
-                    className="pl-10"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                </div>
-                
-                <div className="flex flex-wrap gap-3">
-                  <div className="min-w-[140px]">
-                    <Select 
-                      value={typeFilter}
-                      onValueChange={(value: 'all' | 'expense' | 'income') => setTypeFilter(value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Filtra per tipo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Tutti i tipi</SelectItem>
-                        <SelectItem value="expense">Solo spese</SelectItem>
-                        <SelectItem value="income">Solo entrate</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="min-w-[140px]">
-                    <Select 
-                      value={sortBy}
-                      onValueChange={(value: 'name' | 'transactions' | 'amount') => setSortBy(value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Ordina per" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="name">Nome</SelectItem>
-                        <SelectItem value="transactions">N. transazioni</SelectItem>
-                        <SelectItem value="amount">Importo</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
+              <FilterBar
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                typeFilter={typeFilter}
+                onTypeFilterChange={setTypeFilter}
+                sortBy={sortBy}
+                onSortByChange={setSortBy}
+              />
             </div>
 
             {/* Categories Overview */}
@@ -423,7 +421,7 @@ const Categories: React.FC = () => {
                         />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2">
-                            <h3 className="font-semibold text-gray-900 dark:text-white">{category.name}</h3>
+                            <h3 className="font-semibold text-gray-900 dark:text-white">{highlightCategoryName(category.name)}</h3>
                             <div className="flex items-center gap-1">
                               <Button
                                 variant="ghost"
@@ -514,7 +512,7 @@ const Categories: React.FC = () => {
                         />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2">
-                            <h3 className="font-semibold text-gray-900 dark:text-white">{category.name}</h3>
+                            <h3 className="font-semibold text-gray-900 dark:text-white">{highlightCategoryName(category.name)}</h3>
                             <div className="flex items-center gap-1">
                               <Button
                                 variant="ghost"
@@ -629,6 +627,9 @@ const Categories: React.FC = () => {
                 onChange={(e) => setNewCategoryName(e.target.value)}
                 placeholder="Es. Alimentari, Trasporti, Stipendio..."
               />
+              {!validateCategoryName(newCategoryName).valid && (
+                <p className="text-sm text-red-600 mt-1">{validateCategoryName(newCategoryName).message}</p>
+              )}
             </div>
             
             <div className="space-y-2">
@@ -689,6 +690,7 @@ const Categories: React.FC = () => {
               Annulla
             </Button>
             <Button 
+              disabled={!validateCategoryName(newCategoryName).valid}
               onClick={categoryDialog.mode === 'add' ? handleAddCategory : handleUpdateCategory}
             >
               {categoryDialog.mode === 'add' ? 'Aggiungi' : 'Aggiorna'}
@@ -790,6 +792,17 @@ const Categories: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
+      
+      {/* Dialog Conferma Eliminazione */}
+      <ConfirmDialog
+        open={confirmDialog.isOpen}
+        onOpenChange={(open) => setConfirmDialog({ isOpen: open, category: confirmDialog.category })}
+        title="Conferma Eliminazione"
+        description={`Sei sicuro di voler eliminare la categoria "${confirmDialog.category?.name}"?`}
+        confirmLabel="Elimina"
+        cancelLabel="Annulla"
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
 };

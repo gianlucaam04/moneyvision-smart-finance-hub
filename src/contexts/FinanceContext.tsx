@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Transaction, Category, SavingsGoal, FinancialSummary } from '@/types';
 
@@ -11,6 +10,8 @@ interface FinanceContextType {
   updateTransaction: (id: string, transaction: Partial<Transaction>) => void;
   deleteTransaction: (id: string) => void;
   addCategory: (category: Omit<Category, 'id'>) => void;
+  updateCategory: (id: string, updates: Partial<Category>) => void;
+  deleteCategory: (id: string) => void;
   addSavingsGoal: (goal: Omit<SavingsGoal, 'id'>) => void;
   updateSavingsGoal: (id: string, amount: number) => void;
   refreshSummary: () => void;
@@ -170,6 +171,16 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setCategories(prev => [...prev, newCategory]);
   };
 
+  const updateCategory = (id: string, updates: Partial<Category>) => {
+    setCategories(prev =>
+      prev.map(c => c.id === id ? { ...c, ...updates } : c)
+    );
+  };
+
+  const deleteCategory = (id: string) => {
+    setCategories(prev => prev.filter(c => c.id !== id));
+  };
+
   const addSavingsGoal = (goalData: Omit<SavingsGoal, 'id'>) => {
     const newGoal: SavingsGoal = {
       ...goalData,
@@ -199,6 +210,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     updateTransaction,
     deleteTransaction,
     addCategory,
+    updateCategory,
+    deleteCategory,
     addSavingsGoal,
     updateSavingsGoal,
     refreshSummary: calculateSummary
