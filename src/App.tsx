@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -16,6 +15,7 @@ import Goals from "./pages/Goals";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import ResetPassword from "./pages/ResetPassword"; // Added import statement
 
 const queryClient = new QueryClient();
 
@@ -59,6 +59,7 @@ const App = () => (
                   <Settings />
                 </PrivateRoute>
               } />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             <OnboardingDialog />

@@ -153,6 +153,42 @@ export type Database = {
         }
         Relationships: []
       }
+      archives: {
+        Row: {
+          id: string
+          user_id: string
+          file_name: string
+          file_data: any
+          archive_type: 'auto_archive' | 'import_archive'
+          date_range_start: string
+          date_range_end: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          file_name: string
+          file_data: any
+          archive_type: 'auto_archive' | 'import_archive'
+          date_range_start: string
+          date_range_end: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          file_name?: string
+          file_data?: any
+          archive_type?: 'auto_archive' | 'import_archive'
+          date_range_start?: string
+          date_range_end?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
