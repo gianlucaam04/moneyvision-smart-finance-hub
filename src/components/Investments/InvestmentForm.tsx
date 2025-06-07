@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,9 +11,10 @@ import type { FinnhubSearchResult, InvestmentFormData } from '@/types/investment
 
 interface InvestmentFormProps {
   onInvestmentAdded: () => void;
+  hideTrigger?: boolean;
 }
 
-const InvestmentForm: React.FC<InvestmentFormProps> = ({ onInvestmentAdded }) => {
+const InvestmentForm: React.FC<InvestmentFormProps> = ({ onInvestmentAdded, hideTrigger = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedSymbol, setSelectedSymbol] = useState<FinnhubSearchResult | null>(null);
   const [formData, setFormData] = useState<Partial<InvestmentFormData>>({
@@ -81,7 +81,7 @@ const InvestmentForm: React.FC<InvestmentFormProps> = ({ onInvestmentAdded }) =>
     setIsOpen(false);
   };
 
-  if (!isOpen) {
+  if (!hideTrigger && !isOpen) {
     return (
       <Card className="bg-gradient-to-r from-finance-blue to-blue-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300">
         <CardContent className="p-6">
@@ -117,13 +117,9 @@ const InvestmentForm: React.FC<InvestmentFormProps> = ({ onInvestmentAdded }) =>
             <TrendingUp className="w-5 h-5 text-finance-blue" />
           </div>
           <div>
-            <CardTitle className="text-xl text-gray-900 dark:text-white">Nuovo Investimento</CardTitle>
             <p className="text-sm text-gray-600 dark:text-gray-400">Aggiungi un nuovo asset al tuo portafoglio</p>
           </div>
         </div>
-        <Button variant="ghost" size="sm" onClick={resetForm} className="text-gray-500 hover:text-gray-700">
-          <X className="w-4 h-4" />
-        </Button>
       </CardHeader>
       <CardContent className="space-y-6">
         <form onSubmit={handleSubmit} className="space-y-6">

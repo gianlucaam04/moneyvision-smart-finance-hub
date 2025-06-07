@@ -5,10 +5,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RefreshCw, TrendingUp, TrendingDown, DollarSign, Target, Activity, BarChart3, PieChart } from 'lucide-react';
 import { toast } from 'sonner';
 import Header from '@/components/Layout/Header';
+import Navigation from '@/components/Layout/Navigation';
 import InvestmentForm from '@/components/Investments/InvestmentForm';
 import InvestmentsList from '@/components/Investments/InvestmentsList';
 import { investmentsService } from '@/services/investmentsService';
 import type { Investment } from '@/types/investments';
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
 
 const Investments = () => {
   const [investments, setInvestments] = useState<Investment[]>([]);
@@ -86,7 +88,7 @@ const Investments = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-gray-900 dark:to-gray-800">
       <Header />
-      <main className="container mx-auto px-4 py-8 space-y-8">
+      <main className="container mx-auto px-4 py-8 space-y-8 pb-24">
         
         {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -99,15 +101,29 @@ const Investments = () => {
             </p>
           </div>
           
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <Button 
               onClick={handleUpdatePrices}
               disabled={isUpdatingPrices || investments.length === 0}
-              className="bg-finance-blue hover:bg-blue-600 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+              className="flex-1 whitespace-normal bg-finance-blue hover:bg-blue-600 text-white shadow-lg hover:shadow-xl transition-all duration-200"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${isUpdatingPrices ? 'animate-spin' : ''}`} />
               {isUpdatingPrices ? 'Aggiornamento...' : 'Aggiorna Prezzi'}
             </Button>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button className="flex-1 whitespace-normal bg-green-500 hover:bg-green-600 text-white shadow-lg transition-all duration-200 flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4" />
+                  Aggiungi Investimento
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Aggiungi Investimento</DialogTitle>
+                </DialogHeader>
+                <InvestmentForm hideTrigger onInvestmentAdded={loadInvestments} />
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
 
@@ -131,7 +147,7 @@ const Investments = () => {
 
         {/* Portfolio Summary Cards */}
         {investments.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400 flex items-center gap-2">
@@ -228,14 +244,10 @@ const Investments = () => {
 
         {/* Tabs Section */}
         <Tabs defaultValue="portfolio" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 lg:grid-cols-3 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg">
+          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg">
             <TabsTrigger value="portfolio" className="flex items-center gap-2">
               <Target className="w-4 h-4" />
               Portafoglio
-            </TabsTrigger>
-            <TabsTrigger value="add" className="flex items-center gap-2">
-              <TrendingUp className="w-4 h-4" />
-              Aggiungi
             </TabsTrigger>
             <TabsTrigger value="analytics" className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4" />
@@ -244,14 +256,12 @@ const Investments = () => {
           </TabsList>
 
           <TabsContent value="portfolio" className="space-y-6 mt-6">
-            <InvestmentsList 
-              investments={investments} 
-              onInvestmentDeleted={loadInvestments}
-            />
-          </TabsContent>
-
-          <TabsContent value="add" className="space-y-6 mt-6">
-            <InvestmentForm onInvestmentAdded={loadInvestments} />
+            <div className="overflow-x-auto w-full">
+              <InvestmentsList 
+                investments={investments} 
+                onInvestmentDeleted={loadInvestments}
+              />
+            </div>
           </TabsContent>
 
           <TabsContent value="analytics" className="space-y-6 mt-6">
@@ -337,6 +347,9 @@ const Investments = () => {
           </TabsContent>
         </Tabs>
       </main>
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 safe-area-bottom z-50 shadow-lg">
+        <Navigation />
+      </nav>
     </div>
   );
 };
