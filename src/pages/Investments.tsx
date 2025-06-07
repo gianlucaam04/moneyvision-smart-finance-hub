@@ -1,8 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, TrendingUp, TrendingDown, DollarSign, Target, Activity } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { RefreshCw, TrendingUp, TrendingDown, DollarSign, Target, Activity, BarChart3, PieChart } from 'lucide-react';
 import { toast } from 'sonner';
 import Header from '@/components/Layout/Header';
 import InvestmentForm from '@/components/Investments/InvestmentForm';
@@ -226,16 +226,116 @@ const Investments = () => {
           </div>
         )}
 
-        {/* Investment Form */}
-        <div className="space-y-6">
-          <InvestmentForm onInvestmentAdded={loadInvestments} />
-          
-          {/* Investments List */}
-          <InvestmentsList 
-            investments={investments} 
-            onInvestmentDeleted={loadInvestments}
-          />
-        </div>
+        {/* Tabs Section */}
+        <Tabs defaultValue="portfolio" className="w-full">
+          <TabsList className="grid w-full grid-cols-3 lg:grid-cols-3 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg">
+            <TabsTrigger value="portfolio" className="flex items-center gap-2">
+              <Target className="w-4 h-4" />
+              Portafoglio
+            </TabsTrigger>
+            <TabsTrigger value="add" className="flex items-center gap-2">
+              <TrendingUp className="w-4 h-4" />
+              Aggiungi
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" />
+              Analisi
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="portfolio" className="space-y-6 mt-6">
+            <InvestmentsList 
+              investments={investments} 
+              onInvestmentDeleted={loadInvestments}
+            />
+          </TabsContent>
+
+          <TabsContent value="add" className="space-y-6 mt-6">
+            <InvestmentForm onInvestmentAdded={loadInvestments} />
+          </TabsContent>
+
+          <TabsContent value="analytics" className="space-y-6 mt-6">
+            <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <PieChart className="w-5 h-5" />
+                  Analisi Portfolio
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {investments.length > 0 ? (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Distribuzione Asset</h3>
+                        <div className="space-y-3">
+                          {investments.map((investment, index) => {
+                            const percentage = ((investment.quantity * investment.purchase_price) / totalInvested) * 100;
+                            return (
+                              <div key={investment.id} className="flex items-center justify-between">
+                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                  {investment.symbol}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  <div className="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                    <div 
+                                      className="bg-finance-blue h-2 rounded-full"
+                                      style={{ width: `${percentage}%` }}
+                                    ></div>
+                                  </div>
+                                  <span className="text-sm text-gray-600 dark:text-gray-400 w-12 text-right">
+                                    {percentage.toFixed(1)}%
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Performance per Asset</h3>
+                        <div className="space-y-3">
+                          {investments.map((investment) => {
+                            const currentValue = investment.current_price ? investment.quantity * investment.current_price : null;
+                            const investedValue = investment.quantity * investment.purchase_price;
+                            const pnl = currentValue ? currentValue - investedValue : null;
+                            const pnlPercentage = pnl ? (pnl / investedValue) * 100 : null;
+                            
+                            return (
+                              <div key={investment.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                  {investment.symbol}
+                                </span>
+                                {pnlPercentage !== null ? (
+                                  <div className={`flex items-center gap-1 ${pnlPercentage >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                    {pnlPercentage >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                                    <span className="text-sm font-medium">
+                                      {pnlPercentage >= 0 ? '+' : ''}{pnlPercentage.toFixed(2)}%
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span className="text-sm text-gray-500">N/A</span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <PieChart className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-500 dark:text-gray-400">
+                      Aggiungi dei investimenti per visualizzare le analisi del portafoglio
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
