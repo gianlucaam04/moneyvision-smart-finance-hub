@@ -38,7 +38,9 @@ const Investments = () => {
       setInvestments(updatedInvestments);
       toast.success('Prezzi aggiornati con successo!');
     } catch (error) {
-      toast.error('Errore nell\'aggiornamento dei prezzi');
+      console.error('Errore aggiornamento prezzi:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Errore nell\'aggiornamento dei prezzi';
+      toast.error(errorMessage);
     } finally {
       setIsUpdatingPrices(false);
     }
@@ -97,14 +99,34 @@ const Investments = () => {
             </p>
           </div>
           
-          <Button 
-            onClick={handleUpdatePrices}
-            disabled={isUpdatingPrices || investments.length === 0}
-            className="bg-finance-blue hover:bg-blue-600 text-white shadow-lg hover:shadow-xl transition-all duration-200"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isUpdatingPrices ? 'animate-spin' : ''}`} />
-            {isUpdatingPrices ? 'Aggiornamento...' : 'Aggiorna Prezzi'}
-          </Button>
+          <div className="flex gap-3">
+            <Button 
+              onClick={handleUpdatePrices}
+              disabled={isUpdatingPrices || investments.length === 0}
+              className="bg-finance-blue hover:bg-blue-600 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isUpdatingPrices ? 'animate-spin' : ''}`} />
+              {isUpdatingPrices ? 'Aggiornamento...' : 'Aggiorna Prezzi'}
+            </Button>
+          </div>
+        </div>
+
+        {/* API Status Notice */}
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <div className="text-amber-600 dark:text-amber-400 mt-0.5">
+              <Activity className="w-5 h-5" />
+            </div>
+            <div className="text-sm">
+              <p className="font-medium text-amber-800 dark:text-amber-200">
+                Nota sui prezzi di mercato
+              </p>
+              <p className="text-amber-700 dark:text-amber-300 mt-1">
+                I prezzi vengono aggiornati tramite API esterna. In caso di limitazioni del servizio, 
+                i prezzi potrebbero non essere sempre aggiornati in tempo reale.
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Portfolio Summary Cards */}
