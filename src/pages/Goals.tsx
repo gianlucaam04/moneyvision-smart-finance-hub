@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import Header from '@/components/Layout/Header';
 import Navigation from '@/components/Layout/Navigation';
@@ -33,7 +34,8 @@ const Goals: React.FC = () => {
     deadline: g.deadline || '',
     category: 'saving',
     description: g.description || '',
-    monthlyContribution: 0
+    monthlyContribution: 0,
+    isCompleted: g.isCompleted
   }));
 
   const categoryOptions = [
@@ -98,7 +100,16 @@ const Goals: React.FC = () => {
 
   const handleUpdateGoal = async () => {
     if (editingGoal && newGoalName.trim() && newGoalTarget && newGoalDeadline) {
-      await editSavingsGoal({ id: editingGoal.id, title: newGoalName, targetAmount: parseFloat(newGoalTarget), currentAmount: editingGoal.current, deadline: newGoalDeadline, description: editingGoal.description, color: '' });
+      await editSavingsGoal({ 
+        id: editingGoal.id, 
+        title: newGoalName, 
+        targetAmount: parseFloat(newGoalTarget), 
+        currentAmount: editingGoal.current, 
+        deadline: newGoalDeadline, 
+        description: editingGoal.description, 
+        color: '',
+        isCompleted: editingGoal.isCompleted || false
+      });
       setEditingGoal(null); setNewGoalName(''); setNewGoalTarget(''); setNewGoalDeadline(''); setNewGoalCategory('saving');
       setIsDialogOpen(false);
     }

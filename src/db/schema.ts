@@ -81,12 +81,12 @@ export type Archive = {
   updated_at: string;
 };
 
-// Aggregated DB schema object
+// Aggregated DB schema object - using the actual type definitions
 export const DbSchema = {
-  Profile,
-  Category,
-  Transaction,
-  SavingsGoal,
-  Investment,
-  Archive,
+  Profile: {} as Profile,
+  Category: {} as Category,
+  Transaction: {} as Transaction,
+  SavingsGoal: {} as SavingsGoal,
+  Investment: {} as Investment,
+  Archive: {} as Archive,
 } as const;

@@ -45,11 +45,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return null;
       }
 
+      // Parse preferences with fallback defaults
+      const defaultPreferences = {
+        theme: 'system' as const,
+        currency: 'EUR',
+        notifications: true,
+        language: 'it',
+        biometricAuth: false
+      };
+
+      let parsedPreferences = defaultPreferences;
+      
+      if (profile.preferences && typeof profile.preferences === 'object') {
+        parsedPreferences = {
+          ...defaultPreferences,
+          ...profile.preferences
+        };
+      }
+
       return {
         id: profile.id,
         email: profile.email,
         name: profile.name,
-        preferences: profile.preferences
+        preferences: parsedPreferences
       } as User;
     } catch (error) {
       console.error('Error loading user profile:', error);
@@ -383,7 +401,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsLoading(false);
         return false;
       }
-      setUser(updatedProfile as User);
+      
+      // Parse the updated profile with proper type conversion
+      const parsedProfile = await loadUserProfile(user.id);
+      if (parsedProfile) {
+        setUser(parsedProfile);
+      }
+      
       toast({ title: "Successo", description: "Profilo aggiornato con successo." });
       setIsLoading(false);
       return true;
