@@ -1,3 +1,4 @@
+
 import type { Json } from '@/integrations/supabase/types';
 
 // 📦 profiles table
@@ -52,6 +53,21 @@ export type SavingsGoal = {
   updated_at: string;
 };
 
+// 📦 investments table
+export type Investment = {
+  id: string;
+  user_id: string;
+  symbol: string;
+  name: string;
+  quantity: number;
+  purchase_price: number;
+  purchase_date: string;
+  current_price: number | null;
+  change_percent: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
 // 📦 archives table
 export type Archive = {
   id: string;
@@ -71,5 +87,6 @@ export const DbSchema = {
   Category,
   Transaction,
   SavingsGoal,
+  Investment,
   Archive,
 } as const;

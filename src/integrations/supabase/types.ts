@@ -9,6 +9,42 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      archives: {
+        Row: {
+          archive_type: string
+          created_at: string | null
+          date_range_end: string
+          date_range_start: string
+          file_data: Json
+          file_name: string
+          id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          archive_type: string
+          created_at?: string | null
+          date_range_end: string
+          date_range_start: string
+          file_data: Json
+          file_name: string
+          id?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          archive_type?: string
+          created_at?: string | null
+          date_range_end?: string
+          date_range_start?: string
+          file_data?: Json
+          file_name?: string
+          id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           budget: number | null
@@ -41,6 +77,48 @@ export type Database = {
           name?: string
           type?: string
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      investments: {
+        Row: {
+          change_percent: number | null
+          created_at: string | null
+          current_price: number | null
+          id: string
+          name: string
+          purchase_date: string
+          purchase_price: number
+          quantity: number
+          symbol: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          change_percent?: number | null
+          created_at?: string | null
+          current_price?: number | null
+          id?: string
+          name: string
+          purchase_date: string
+          purchase_price: number
+          quantity: number
+          symbol: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          change_percent?: number | null
+          created_at?: string | null
+          current_price?: number | null
+          id?: string
+          name?: string
+          purchase_date?: string
+          purchase_price?: number
+          quantity?: number
+          symbol?: string
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: []
@@ -153,48 +231,15 @@ export type Database = {
         }
         Relationships: []
       }
-      archives: {
-        Row: {
-          id: string
-          user_id: string
-          file_name: string
-          file_data: any
-          archive_type: 'auto_archive' | 'import_archive'
-          date_range_start: string
-          date_range_end: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          file_name: string
-          file_data: any
-          archive_type: 'auto_archive' | 'import_archive'
-          date_range_start: string
-          date_range_end: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          file_name?: string
-          file_data?: any
-          archive_type?: 'auto_archive' | 'import_archive'
-          date_range_start?: string
-          date_range_end?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      archive_old_data: {
+        Args: { target_user_id?: string }
+        Returns: number
+      }
     }
     Enums: {
       [_ in never]: never

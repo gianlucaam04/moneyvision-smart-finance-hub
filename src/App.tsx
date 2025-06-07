@@ -12,6 +12,7 @@ import Dashboard from "./pages/Dashboard";
 import Transactions from "./pages/Transactions";
 import Categories from "./pages/Categories";
 import Goals from "./pages/Goals";
+import Investments from "./pages/Investments";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
@@ -48,6 +49,11 @@ const App = () => (
               <Route path="/goals" element={
                 <PrivateRoute>
                   <Goals />
+                </PrivateRoute>
+              } />
+              <Route path="/investments" element={
+                <PrivateRoute>
+                  <Investments />
                 </PrivateRoute>
               } />
               <Route path="/analytics" element={
