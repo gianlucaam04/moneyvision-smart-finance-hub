@@ -3,7 +3,7 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Menu, Home, CreditCard, Settings, Target, Tag, BarChart } from 'lucide-react';
+import { Menu, Home, CreditCard, Settings, Target, Tag, BarChart, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
@@ -20,8 +20,9 @@ interface NavItem {
 
 // Voci da mostrare sempre nella barra di navigazione
 const mainNavigationItems: NavItem[] = [
-  { to: '/', label: 'Dashboard', iconComponent: Home },
+  { to: '/dashboard', label: 'Dashboard', iconComponent: Home },
   { to: '/transactions', label: 'Transazioni', iconComponent: CreditCard },
+  { to: '/investments', label: 'Investimenti', iconComponent: TrendingUp },
   { to: '/settings', label: 'Impostazioni', iconComponent: Settings },
 ];
 

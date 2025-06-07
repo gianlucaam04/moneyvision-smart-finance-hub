@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
 import SymbolSearch from './SymbolSearch';
 import { investmentsService } from '@/services/investmentsService';
@@ -83,34 +83,65 @@ const InvestmentForm: React.FC<InvestmentFormProps> = ({ onInvestmentAdded }) =>
 
   if (!isOpen) {
     return (
-      <Button onClick={() => setIsOpen(true)} className="mb-6">
-        <Plus className="w-4 h-4 mr-2" />
-        Aggiungi Investimento
-      </Button>
+      <Card className="bg-gradient-to-r from-finance-blue to-blue-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-white/20 rounded-lg">
+                <TrendingUp className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold">Aggiungi Investimento</h3>
+                <p className="text-blue-100">Espandi il tuo portafoglio con nuovi asset</p>
+              </div>
+            </div>
+            <Button 
+              onClick={() => setIsOpen(true)} 
+              variant="secondary"
+              className="bg-white text-finance-blue hover:bg-gray-100"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Aggiungi
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <Card className="mb-6">
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Nuovo Investimento</CardTitle>
-        <Button variant="ghost" size="sm" onClick={resetForm}>
+    <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg">
+      <CardHeader className="flex flex-row items-center justify-between pb-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-finance-blue/10 rounded-lg">
+            <TrendingUp className="w-5 h-5 text-finance-blue" />
+          </div>
+          <div>
+            <CardTitle className="text-xl text-gray-900 dark:text-white">Nuovo Investimento</CardTitle>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Aggiungi un nuovo asset al tuo portafoglio</p>
+          </div>
+        </div>
+        <Button variant="ghost" size="sm" onClick={resetForm} className="text-gray-500 hover:text-gray-700">
           <X className="w-4 h-4" />
         </Button>
       </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="symbol-search">Cerca Asset *</Label>
+      <CardContent className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="symbol-search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Cerca Asset *
+            </Label>
             <SymbolSearch 
               onSymbolSelect={handleSymbolSelect}
               selectedSymbol={selectedSymbol || undefined}
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="quantity">Quantità *</Label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <Label htmlFor="quantity" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Quantità *
+              </Label>
               <Input
                 id="quantity"
                 type="number"
@@ -119,12 +150,15 @@ const InvestmentForm: React.FC<InvestmentFormProps> = ({ onInvestmentAdded }) =>
                 value={formData.quantity || ''}
                 onChange={(e) => handleInputChange('quantity', e.target.value)}
                 placeholder="1.5"
+                className="border-gray-200 dark:border-gray-600 focus:border-finance-blue focus:ring-finance-blue"
                 required
               />
             </div>
 
-            <div>
-              <Label htmlFor="purchase_price">Prezzo di Acquisto (€) *</Label>
+            <div className="space-y-2">
+              <Label htmlFor="purchase_price" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Prezzo di Acquisto (€) *
+              </Label>
               <Input
                 id="purchase_price"
                 type="number"
@@ -133,18 +167,22 @@ const InvestmentForm: React.FC<InvestmentFormProps> = ({ onInvestmentAdded }) =>
                 value={formData.purchase_price || ''}
                 onChange={(e) => handleInputChange('purchase_price', e.target.value)}
                 placeholder="150.25"
+                className="border-gray-200 dark:border-gray-600 focus:border-finance-blue focus:ring-finance-blue"
                 required
               />
             </div>
           </div>
 
-          <div>
-            <Label htmlFor="purchase_date">Data di Acquisto *</Label>
+          <div className="space-y-2">
+            <Label htmlFor="purchase_date" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Data di Acquisto *
+            </Label>
             <Input
               id="purchase_date"
               type="date"
               value={formData.purchase_date || ''}
               onChange={(e) => handleInputChange('purchase_date', e.target.value)}
+              className="border-gray-200 dark:border-gray-600 focus:border-finance-blue focus:ring-finance-blue"
               required
             />
           </div>
@@ -153,11 +191,16 @@ const InvestmentForm: React.FC<InvestmentFormProps> = ({ onInvestmentAdded }) =>
             <Button 
               type="submit" 
               disabled={isSubmitting || !selectedSymbol}
-              className="flex-1"
+              className="flex-1 bg-finance-blue hover:bg-blue-600 text-white shadow-lg hover:shadow-xl transition-all duration-200"
             >
               {isSubmitting ? 'Aggiunta...' : 'Aggiungi Investimento'}
             </Button>
-            <Button type="button" variant="outline" onClick={resetForm}>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={resetForm}
+              className="border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
               Annulla
             </Button>
           </div>
