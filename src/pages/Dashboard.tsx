@@ -34,25 +34,12 @@ const Dashboard: React.FC = () => {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 w-full">
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                    Benvenuto in MoneyVision
+                    MoneyVision
                   </h1>
                   <p className="text-gray-600 dark:text-gray-300 mt-1">
-                    La tua guida personale alla gestione finanziaria
+                  Il tuo tracker finanziario intelligente
                   </p>
                 </div>
-                
-                {/* Quick Add Transaction */}
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button className="bg-finance-blue hover:bg-finance-blue/90 text-white font-semibold px-4 py-2 rounded-lg shadow-md transition-all">
-                      <CirclePlus className="w-5 h-5 mr-2" />
-                      Aggiungi Transazione
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 max-w-[95vw] sm:max-w-md overflow-hidden">
-                    <TransactionForm />
-                  </DialogContent>
-                </Dialog>
               </div>
             </div>
 

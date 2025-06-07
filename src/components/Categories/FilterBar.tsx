@@ -32,7 +32,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
     </div>
 
     <div className="flex flex-wrap gap-3">
-      <div className="min-w-[140px]">
+      <div className="min-w-[156px]">
         <Select value={typeFilter} onValueChange={onTypeFilterChange}>
           <SelectTrigger>
             <SelectValue placeholder="Filtra per tipo" />

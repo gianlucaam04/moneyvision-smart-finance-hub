@@ -1,65 +1,44 @@
-
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import DOMPurify from 'dompurify';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
 import { ArrowLeft } from 'lucide-react';
 
-interface ForgotPasswordProps {
-  onBackToLogin: () => void;
-}
+const schema = z.object({ email: z.string().email({ message: 'Email non valida' }) });
+type FormData = z.infer<typeof schema>;
 
-const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onBackToLogin }) => {
-  const [email, setEmail] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+const ForgotPassword: React.FC<{ onBackToLogin: () => void }> = ({ onBackToLogin }) => {
   const [emailSent, setEmailSent] = useState(false);
+  const [errorCount, setErrorCount] = useState(0);
+  const [blocked, setBlocked] = useState(false);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!email) {
-      toast({
-        title: "Errore",
-        description: "Inserisci il tuo indirizzo email",
-        variant: "destructive",
-      });
-      return;
-    }
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({ resolver: zodResolver(schema) });
 
-    setIsLoading(true);
-    
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
-
+  const onSubmit = (data: FormData) => {
+    if (blocked) return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      const { error } = await supabase.auth.resetPasswordForEmail(DOMPurify.sanitize(data.email), { redirectTo: `${window.location.origin}/reset-password` });
       if (error) {
-        console.error('Password reset error:', error);
-        toast({
-          title: "Errore",
-          description: error.message,
-          variant: "destructive",
+        setErrorCount(c => {
+          const next = c + 1;
+          if (next >= 5) setBlocked(true);
+          return next;
         });
+        toast({ title: 'Errore', description: error.message, variant: 'destructive' });
       } else {
         setEmailSent(true);
-        toast({
-          title: "Email inviata",
-          description: "Controlla la tua email per le istruzioni di reset della password",
-        });
+        toast({ title: 'Email inviata', description: 'Controlla la tua email per le istruzioni di reset' });
       }
-    } catch (error) {
-      console.error('Password reset error:', error);
-      toast({
-        title: "Errore",
-        description: "Errore durante l'invio dell'email di reset",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
+    }, 500);
   };
 
   if (emailSent) {
@@ -112,26 +91,27 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onBackToLogin }) => {
       </CardHeader>
       
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
               type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              {...register('email')}
+              aria-invalid={!!errors.email}
               placeholder="Inserisci la tua email"
               className="w-full"
               required
             />
+            {errors.email && <p role="alert" className="text-red-500">{errors.email.message}</p>}
           </div>
 
           <Button 
             type="submit" 
             className="w-full bg-gradient-to-r from-finance-blue to-finance-green hover:from-finance-blue/90 hover:to-finance-green/90 text-white font-medium py-2 rounded-lg transition-all duration-200 transform hover:scale-105"
-            disabled={isLoading}
+            disabled={isSubmitting || blocked}
           >
-            {isLoading ? 'Invio in corso...' : 'Invia Email di Reset'}
+            {blocked ? 'Bloccato. Riprova più tardi' : isSubmitting ? 'Invio...' : 'Invia Email di Reset'}
           </Button>
           
           <Button 

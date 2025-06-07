@@ -1,4 +1,4 @@
-import React, { useState, useMemo, Suspense } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useFinance } from '@/contexts/FinanceContext';
 import Header from '@/components/Layout/Header';
 import Navigation from '@/components/Layout/Navigation';
@@ -7,8 +7,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { TrendingUp, TrendingDown, DollarSign, Calendar, Target, PieChart as PieChartIcon } from 'lucide-react';
+import { TrendingUp, TrendingDown, Target, Lightbulb, Calendar, PieChart as PieChartIcon, Loader } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import Together from 'together-ai';
+import { BUILD_FORECAST_PROMPT } from '@/prompts/forecastPrompts';
+const TOGETHER_API_KEY = '3e5e74406a4de464802163316677abf0b8fae098ac9d23ad1df8fee3a48eb45f';
+const together = new Together({ apiKey: TOGETHER_API_KEY });
+
+// Caching e limiti API
+const FREE_CALL_LIMIT = 5;
 
 const Analytics: React.FC = () => {
   const { transactions, categories, summary } = useFinance();
@@ -18,6 +25,13 @@ const Analytics: React.FC = () => {
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [endDate, setEndDate] = useState<Date>(new Date());
+  const [selectedTab, setSelectedTab] = useState<'trends' | 'categories' | 'predictions' | 'comparison'>('trends');
+  const [predictions, setPredictions] = useState<{ title: string; content: string }[]>([]);
+  const [loadingPredictions, setLoadingPredictions] = useState(false);
+  const [remainingCalls, setRemainingCalls] = useState<number>(() => Number(localStorage.getItem('apiRemaining')) || FREE_CALL_LIMIT);
+  const [feedback, setFeedback] = useState<Record<number, boolean>>({});
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const [elapsedTime, setElapsedTime] = useState<number>(0);
 
   // Compute period bounds
   const { start, end } = useMemo(() => {
@@ -91,6 +105,74 @@ const Analytics: React.FC = () => {
       currency: 'EUR',
     }).format(amount);
   };
+
+  useEffect(() => {
+    if (selectedTab === 'predictions') {
+      const cache = localStorage.getItem(`predictions_${timeRange}`);
+      if (cache) setPredictions(JSON.parse(cache));
+      else fetchPredictions();
+    }
+  }, [selectedTab, timeRange]);
+
+  async function fetchPredictions() {
+    setStartTime(Date.now());
+    if (remainingCalls <= 0) {
+      alert('Limite chiamate API raggiunto');
+      return;
+    }
+    setLoadingPredictions(true);
+    try {
+      // Solo ultimi 6 mesi
+      const recent = monthlyData.slice(-6);
+      const summaryStr = recent.map(d => `${d.month}: entrate ${d.income}, uscite ${d.expenses}, risparmio ${d.savings}`).join('; ');
+      const prompt = BUILD_FORECAST_PROMPT(summaryStr);
+      const response = await together.chat.completions.create({
+        model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free',
+        messages: [
+          { role: 'user', content: prompt }
+        ]
+      });
+      const text = response.choices[0].message.content;
+      let jsonStr = text.trim();
+      const codeFenceRegex = /```(?:json)?\n([\s\S]*?)```/;
+      const match = codeFenceRegex.exec(jsonStr);
+      if (match) jsonStr = match[1].trim();
+      const data = JSON.parse(jsonStr);
+      // Validazione struttura
+      if (!data.predictions || !Array.isArray(data.predictions) || data.predictions.length !== 3) throw new Error('Formato non valido');
+      data.predictions.forEach((p:any) => { if (typeof p.title !== 'string' || typeof p.content !== 'string') throw new Error('Tipo errato'); });
+      const parsed = data.predictions;
+      setPredictions(parsed);
+      // Caching e decremento limite
+      localStorage.setItem(`predictions_${timeRange}`, JSON.stringify(parsed));
+      const rem = remainingCalls - 1; setRemainingCalls(rem); localStorage.setItem('apiRemaining', String(rem));
+    } catch (err) {
+      console.error('Error fetching predictions:', err);
+    } finally {
+      setLoadingPredictions(false);
+      setStartTime(null);
+    }
+  }
+
+  // Timer for loading
+  useEffect(() => {
+    let timer: ReturnType<typeof setInterval>;
+    if (loadingPredictions && startTime) {
+      timer = setInterval(() => {
+        setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
+      }, 500);
+    } else {
+      setElapsedTime(0);
+    }
+    return () => timer && clearInterval(timer);
+  }, [loadingPredictions, startTime]);
+
+  // Gestione feedback
+  function handleFeedback(idx:number, useful:boolean){
+    setFeedback(f => ({...f,[idx]:useful}));
+    // salva o invia feedback
+    console.log('Feedback', idx, useful);
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -200,7 +282,7 @@ const Analytics: React.FC = () => {
                   <div className="text-center lg:text-left">
                     <p className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">Risparmio</p>
                     <p className="text-lg lg:text-2xl font-bold text-finance-green">
-                      {(totalIncomeLocal - totalExpensesLocal) / totalIncomeLocal * 100}.toFixed(1)%
+                      {((totalIncomeLocal - totalExpensesLocal) / totalIncomeLocal * 100).toFixed(1)}%
                     </p>
                     <div className="flex items-center justify-center lg:justify-start mt-1">
                       <span className="text-xs text-gray-500">🎯 Obiettivo 20%</span>
@@ -211,11 +293,11 @@ const Analytics: React.FC = () => {
             </div>
 
             {/* Charts - Mobile Optimized Tabs */}
-            <Tabs defaultValue="trends" className="animate-fade-in">
+            <Tabs value={selectedTab} onValueChange={(value) => setSelectedTab(value as 'trends' | 'categories' | 'predictions' | 'comparison')} className="animate-fade-in">
               <TabsList className="grid w-full grid-cols-3 lg:grid-cols-4 h-auto">
                 <TabsTrigger value="trends" className="text-xs lg:text-sm px-2 py-2">Andamenti</TabsTrigger>
                 <TabsTrigger value="categories" className="text-xs lg:text-sm px-2 py-2">Categorie</TabsTrigger>
-                <TabsTrigger value="predictions" className="text-xs lg:text-sm px-2 py-2">Previsioni</TabsTrigger>
+                <TabsTrigger value="predictions" className="text-xs lg:text-sm px-2 py-2">Previsioni Future</TabsTrigger>
                 <TabsTrigger value="comparison" className="text-xs lg:text-sm px-2 py-2 hidden lg:block">Confronti</TabsTrigger>
               </TabsList>
 
@@ -293,7 +375,7 @@ const Analytics: React.FC = () => {
                             <div className="text-right">
                               <div className="font-semibold text-sm lg:text-base">{formatCurrency(category.value)}</div>
                               <div className="text-xs lg:text-sm text-gray-500">
-                                {(category.value / categoryData.reduce((sum, cat) => sum + cat.value, 0)) * 100}.toFixed(1)%
+                                {((category.value / categoryData.reduce((sum, cat) => sum + cat.value, 0)) * 100).toFixed(1)}%
                               </div>
                             </div>
                           </div>
@@ -305,75 +387,55 @@ const Analytics: React.FC = () => {
               </TabsContent>
 
               <TabsContent value="predictions" className="space-y-4 lg:space-y-6 mt-4">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="flex items-center text-lg lg:text-xl">
-                        <TrendingUp className="w-4 h-4 lg:w-5 lg:h-5 mr-2" />
-                        Previsioni e Trend
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3 lg:space-y-4">
-                      <div className="p-3 lg:p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                        <h4 className="font-semibold text-blue-900 dark:text-blue-100 text-sm lg:text-base">📈 Trend Positivo</h4>
-                        <p className="text-xs lg:text-sm text-blue-700 dark:text-blue-300 mt-1">
-                          Le tue spese per trasporti sono diminuite del 15% questo mese.
-                        </p>
-                      </div>
-                      
-                      <div className="p-3 lg:p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-                        <h4 className="font-semibold text-yellow-900 dark:text-yellow-100 text-sm lg:text-base">⚠️ Attenzione</h4>
-                        <p className="text-xs lg:text-sm text-yellow-700 dark:text-yellow-300 mt-1">
-                          Le spese per intrattenimento stanno aumentando. Considera un budget.
-                        </p>
-                      </div>
-                      
-                      <div className="p-3 lg:p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                        <h4 className="font-semibold text-green-900 dark:text-green-100 text-sm lg:text-base">🎯 Obiettivo</h4>
-                        <p className="text-xs lg:text-sm text-green-700 dark:text-green-300 mt-1">
-                          Mantieni questo ritmo e raggiungerai l'obiettivo di risparmio in 8 mesi.
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-lg lg:text-xl">Raccomandazioni</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="flex items-start space-x-3">
-                        <span className="text-base lg:text-lg flex-shrink-0">💡</span>
-                        <div className="min-w-0">
-                          <p className="font-medium text-sm lg:text-base">Ottimizza le spese ricorrenti</p>
-                          <p className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">
-                            Rivedi gli abbonamenti per risparmiare €120/mese
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-start space-x-3">
-                        <span className="text-base lg:text-lg flex-shrink-0">📊</span>
-                        <div className="min-w-0">
-                          <p className="font-medium text-sm lg:text-base">Aumenta il risparmio</p>
-                          <p className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">
-                            Raggiungi il 20% riducendo le spese per intrattenimento
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-start space-x-3">
-                        <span className="text-base lg:text-lg flex-shrink-0">🎯</span>
-                        <div className="min-w-0">
-                          <p className="font-medium text-sm lg:text-base">Nuovo obiettivo</p>
-                          <p className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">
-                            Crea un fondo emergenza pari a 6 mesi di spese
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
+                {loadingPredictions ? (
+                  <div className="flex flex-col items-center py-6 space-y-2">
+                    <Loader className="animate-spin w-8 h-8 text-indigo-500" />
+                    <p>Generazione previsioni future... {elapsedTime}s</p>
+                  </div>
+                ) : predictions.length === 0 ? (
+                  <Button onClick={fetchPredictions}>Calcola Previsioni</Button>
+                ) : (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+                    {predictions.map((p, idx) => {
+                      const titleLower = p.title.toLowerCase();
+                      // Scegli icona e colore border in base al tipo di previsione
+                      let Icon;
+                      let borderColor;
+                      if (titleLower.includes('proiezione') || titleLower.includes('entrate')) {
+                        Icon = TrendingUp;
+                        borderColor = 'border-green-400';
+                      } else if (titleLower.includes('opportunità')) {
+                        Icon = Target;
+                        borderColor = 'border-blue-400';
+                      } else if (titleLower.includes('rischi')) {
+                        Icon = TrendingDown;
+                        borderColor = 'border-red-400';
+                      } else if (titleLower.includes('raccomandazioni')) {
+                        Icon = Lightbulb;
+                        borderColor = 'border-indigo-400';
+                      } else {
+                        // Default
+                        Icon = Lightbulb;
+                        borderColor = 'border-gray-400';
+                      }
+                      return (
+                        <Card key={idx} className={`border-l-4 ${borderColor} bg-white dark:bg-gray-800 p-4 shadow-sm rounded-lg transform transition-shadow duration-300 hover:shadow-lg`}>
+                          <CardHeader className="flex items-center space-x-2 pb-3">
+                            <Icon className="w-5 h-5 text-indigo-500" />
+                            <CardTitle className="text-lg lg:text-xl font-semibold">{p.title}</CardTitle>
+                          </CardHeader>
+                          <CardContent className="text-base text-gray-700 dark:text-gray-300">
+                            {p.content}
+                            <div className="mt-2 flex space-x-2">
+                              <Button size="sm" variant={feedback[idx] === true ? 'default' : 'outline'} onClick={() => handleFeedback(idx, true)}>👍</Button>
+                              <Button size="sm" variant={feedback[idx] === false ? 'default' : 'outline'} onClick={() => handleFeedback(idx, false)}>👎</Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
               </TabsContent>
 
               <TabsContent value="comparison" className="space-y-4 lg:space-y-6 mt-4">
@@ -396,54 +458,52 @@ const Analytics: React.FC = () => {
                     </div>
                   </CardContent>
                 </Card>
-                <Suspense fallback={<div>Loading...</div>}>
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-lg lg:text-xl">Line Chart</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="h-64 lg:h-96 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={monthlyData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="month" fontSize={12} />
-                            <YAxis fontSize={12} />
-                            <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                            <Line type="monotone" dataKey="income" stroke="#10B981" strokeWidth={2} name="Entrate" />
-                            <Line type="monotone" dataKey="expenses" stroke="#EF4444" strokeWidth={2} name="Uscite" />
-                          </LineChart>
-                        </ResponsiveContainer>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-lg lg:text-xl">Pie Chart</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="h-48 lg:h-64 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={categoryData}
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={40}
-                              outerRadius={80}
-                              paddingAngle={5}
-                              dataKey="value"
-                            >
-                              {categoryData.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.color} />
-                              ))}
-                            </Pie>
-                            <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                          </PieChart>
-                        </ResponsiveContainer>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Suspense>
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg lg:text-xl">Line Chart</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-64 lg:h-96 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={monthlyData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="month" fontSize={12} />
+                          <YAxis fontSize={12} />
+                          <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                          <Line type="monotone" dataKey="income" stroke="#10B981" strokeWidth={2} name="Entrate" />
+                          <Line type="monotone" dataKey="expenses" stroke="#EF4444" strokeWidth={2} name="Uscite" />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg lg:text-xl">Pie Chart</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-48 lg:h-64 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={categoryData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={40}
+                            outerRadius={80}
+                            paddingAngle={5}
+                            dataKey="value"
+                          >
+                            {categoryData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
               </TabsContent>
             </Tabs>
           </div>

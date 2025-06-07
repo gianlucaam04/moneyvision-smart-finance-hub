@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Transaction, Category, SavingsGoal, FinancialSummary } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,7 +16,9 @@ interface FinanceContextType {
   updateCategory: (id: string, updates: Partial<Category>) => void;
   deleteCategory: (id: string) => void;
   addSavingsGoal: (goal: Omit<SavingsGoal, 'id'>) => void;
+  editSavingsGoal: (goal: SavingsGoal) => void;
   updateSavingsGoal: (id: string, amount: number) => void;
+  deleteSavingsGoal: (id: string) => void;
   refreshSummary: () => void;
   isLoading: boolean;
 }
@@ -454,6 +455,37 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  const editSavingsGoal = async (goalData: SavingsGoal) => {
+    if (!user) return;
+
+    try {
+      const updatePayload = {
+        title: goalData.title,
+        target_amount: goalData.targetAmount,
+        deadline: goalData.deadline || null,
+        description: goalData.description || null,
+        color: goalData.color,
+        is_completed: goalData.currentAmount >= goalData.targetAmount
+      };
+
+      const { data, error } = await supabase
+        .from('savings_goals')
+        .update(updatePayload)
+        .eq('id', goalData.id)
+        .eq('user_id', user.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setSavingsGoals(prev => prev.map(g => g.id === data.id ? mapDbSavingsGoal(data) : g));
+      toast({ title: 'Successo', description: `Obiettivo "${goalData.title}" aggiornato con successo` });
+    } catch (error) {
+      console.error('Error editing goal:', error);
+      toast({ title: 'Errore', description: 'Impossibile aggiornare l\'obiettivo', variant: 'destructive' });
+    }
+  };
+
   const updateSavingsGoal = async (id: string, amount: number) => {
     if (!user) return;
 
@@ -495,6 +527,26 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  const deleteSavingsGoal = async (id: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('savings_goals')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setSavingsGoals(prev => prev.filter(g => g.id !== id));
+      toast({ title: 'Successo', description: 'Obiettivo eliminato con successo' });
+    } catch (error) {
+      console.error('Error deleting goal:', error);
+      toast({ title: 'Errore', description: 'Impossibile eliminare l\'obiettivo', variant: 'destructive' });
+    }
+  };
+
   const value = {
     transactions,
     categories,
@@ -507,7 +559,9 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     updateCategory,
     deleteCategory,
     addSavingsGoal,
+    editSavingsGoal,
     updateSavingsGoal,
+    deleteSavingsGoal,
     refreshSummary: calculateSummary,
     isLoading
   };

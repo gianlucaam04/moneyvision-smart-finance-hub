@@ -15,7 +15,8 @@ import Goals from "./pages/Goals";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
-import ResetPassword from "./pages/ResetPassword"; // Added import statement
+import ResetPassword from "./pages/ResetPassword";
+import Profile from "./pages/Profile";
 
 const queryClient = new QueryClient();
 
@@ -57,6 +58,11 @@ const App = () => (
               <Route path="/settings" element={
                 <PrivateRoute>
                   <Settings />
+                </PrivateRoute>
+              } />
+              <Route path="/profile" element={
+                <PrivateRoute>
+                  <Profile />
                 </PrivateRoute>
               } />
               <Route path="/reset-password" element={<ResetPassword />} />

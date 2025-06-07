@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CirclePlus, Edit, Trash2, Palette, Target, TrendingUp, Search, SlidersHorizontal, X, CircleDollarSign, Package } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -364,18 +365,68 @@ const Categories: React.FC = () => {
                     Organizza e monitora le tue categorie di spesa e entrata
                   </p>
                 </div>
-                
-                <Button 
+              </div>
+            </div>
+
+            {/* Quick Stats */}
+            <Card className="animate-fade-in">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center text-lg lg:text-xl">
+                  <Palette className="w-5 h-5 mr-2" />
+                  Statistiche Rapide
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <div className="text-xl lg:text-2xl font-bold text-blue-600">
+                      {filteredCategories.length}
+                    </div>
+                    <div className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">
+                      Categorie Totali
+                    </div>
+                  </div>
+                  
+                  <div className="text-center p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                    <div className="text-xl lg:text-2xl font-bold text-red-600">
+                      {expenseCategories.length}
+                    </div>
+                    <div className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">
+                      Categorie Spesa
+                    </div>
+                  </div>
+                  
+                  <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                    <div className="text-xl lg:text-2xl font-bold text-green-600">
+                      {incomeCategories.length}
+                    </div>
+                    <div className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">
+                      Categorie Entrata
+                    </div>
+                  </div>
+                  
+                  <div className="text-center p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                    <div className="text-xl lg:text-2xl font-bold text-yellow-600">
+                      {filteredCategories.filter(cat => cat.budget).length}
+                    </div>
+                    <div className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">
+                      Con Budget
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Button 
                   className="w-full sm:w-auto bg-gradient-to-r from-finance-blue to-finance-green hover:from-finance-blue/90 hover:to-finance-green/90 text-white"
                   onClick={openAddCategoryDialog}
                 >
                   <CirclePlus className="w-4 h-4 mr-2" />
                   Nuova Categoria
                 </Button>
-              </div>
-              
-              {/* Filtri e Ricerca */}
-              <FilterBar
+
+            {/* Filtri e Ricerca */}
+            <FilterBar
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
                 typeFilter={typeFilter}
@@ -383,11 +434,10 @@ const Categories: React.FC = () => {
                 sortBy={sortBy}
                 onSortByChange={setSortBy}
               />
-            </div>
 
             {/* Categories Overview */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 w-full overflow-hidden">
-              {/* Expense Categories */}
+            <div className="w-full overflow-hidden">
+              {(typeFilter === 'all' || typeFilter === 'expense') && (
               <Card className="animate-fade-in">
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center text-lg lg:text-xl">
@@ -421,7 +471,13 @@ const Categories: React.FC = () => {
                         />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2">
-                            <h3 className="font-semibold text-gray-900 dark:text-white">{highlightCategoryName(category.name)}</h3>
+                            <div className="flex items-center gap-2">
+                              {(() => {
+                                const IconComponent = (LucideIcons as any)[category.icon];
+                                return IconComponent ? <IconComponent className="w-4 h-4 text-gray-500 dark:text-gray-400" /> : null;
+                              })()}
+                              <h3 className="font-semibold text-gray-900 dark:text-white">{highlightCategoryName(category.name)}</h3>
+                            </div>
                             <div className="flex items-center gap-1">
                               <Button
                                 variant="ghost"
@@ -477,8 +533,8 @@ const Categories: React.FC = () => {
                   ))}
                 </CardContent>
               </Card>
-
-              {/* Income Categories */}
+              )}
+              {(typeFilter === 'all' || typeFilter === 'income') && (
               <Card className="animate-fade-in">
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center text-lg lg:text-xl">
@@ -512,7 +568,13 @@ const Categories: React.FC = () => {
                         />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2">
-                            <h3 className="font-semibold text-gray-900 dark:text-white">{highlightCategoryName(category.name)}</h3>
+                            <div className="flex items-center gap-2">
+                              {(() => {
+                                const IconComponent = (LucideIcons as any)[category.icon];
+                                return IconComponent ? <IconComponent className="w-4 h-4 text-gray-500 dark:text-gray-400" /> : null;
+                              })()}
+                              <h3 className="font-semibold text-gray-900 dark:text-white">{highlightCategoryName(category.name)}</h3>
+                            </div>
                             <div className="flex items-center gap-1">
                               <Button
                                 variant="ghost"
@@ -550,56 +612,9 @@ const Categories: React.FC = () => {
                   ))}
                 </CardContent>
               </Card>
+              )}
             </div>
 
-            {/* Quick Stats */}
-            <Card className="animate-fade-in">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center text-lg lg:text-xl">
-                  <Palette className="w-5 h-5 mr-2" />
-                  Statistiche Rapide
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                    <div className="text-xl lg:text-2xl font-bold text-blue-600">
-                      {filteredCategories.length}
-                    </div>
-                    <div className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">
-                      Categorie Totali
-                    </div>
-                  </div>
-                  
-                  <div className="text-center p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                    <div className="text-xl lg:text-2xl font-bold text-red-600">
-                      {expenseCategories.length}
-                    </div>
-                    <div className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">
-                      Categorie Spesa
-                    </div>
-                  </div>
-                  
-                  <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                    <div className="text-xl lg:text-2xl font-bold text-green-600">
-                      {incomeCategories.length}
-                    </div>
-                    <div className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">
-                      Categorie Entrata
-                    </div>
-                  </div>
-                  
-                  <div className="text-center p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-                    <div className="text-xl lg:text-2xl font-bold text-yellow-600">
-                      {filteredCategories.filter(cat => cat.budget).length}
-                    </div>
-                    <div className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">
-                      Con Budget
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           </div>
         </main>
       </div>

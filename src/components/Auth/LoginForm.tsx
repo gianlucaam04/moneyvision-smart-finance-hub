@@ -1,5 +1,8 @@
-
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import DOMPurify from 'dompurify';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,28 +11,40 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { toast } from '@/hooks/use-toast';
 import ForgotPassword from './ForgotPassword';
 
-const LoginForm: React.FC = () => {
-  const [email, setEmail] = useState('demo@moneyvision.app');
-  const [password, setPassword] = useState('demo123');
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const { login, isLoading } = useAuth();
+const schema = z.object({
+  email: z.string().email({ message: 'Email non valida' }),
+  password: z.string().nonempty({ message: 'Password richiesta' }),
+});
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const success = await login(email, password);
-    if (success) {
-      toast({
-        title: "Accesso effettuato",
-        description: "Benvenuto in MoneyVision!",
-      });
-    } else {
-      toast({
-        title: "Errore di accesso",
-        description: "Credenziali non valide",
-        variant: "destructive",
-      });
-    }
+type FormData = z.infer<typeof schema>;
+
+const LoginForm: React.FC = () => {
+  const { login, isLoading } = useAuth();
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [errorCount, setErrorCount] = useState(0);
+  const [blocked, setBlocked] = useState(false);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
+    resolver: zodResolver(schema)
+  });
+
+  const onSubmit = (data: FormData) => {
+    if (blocked) return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      const success = await login(DOMPurify.sanitize(data.email), data.password);
+      if (!success) {
+        setErrorCount(c => {
+          const next = c + 1;
+          if (next >= 5) setBlocked(true);
+          return next;
+        });
+        toast({ title: 'Errore di accesso', description: 'Credenziali non valide', variant: 'destructive' });
+      } else {
+        toast({ title: 'Accesso effettuato', description: 'Benvenuto in MoneyVision!' });
+      }
+    }, 500);
   };
 
   if (showForgotPassword) {
@@ -56,39 +71,25 @@ const LoginForm: React.FC = () => {
         </CardHeader>
         
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Inserisci la tua email"
-                className="w-full"
-                required
-              />
+              <Input id="email" type="email" {...register('email')} aria-invalid={!!errors.email} />
+              {errors.email && <p role="alert" className="text-red-500">{errors.email.message}</p>}
             </div>
             
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Inserisci la password"
-                className="w-full"
-                required
-              />
+              <Input id="password" type="password" {...register('password')} aria-invalid={!!errors.password} />
+              {errors.password && <p role="alert" className="text-red-500">{errors.password.message}</p>}
             </div>
 
             <Button 
               type="submit" 
               className="w-full bg-gradient-to-r from-finance-blue to-finance-green hover:from-finance-blue/90 hover:to-finance-green/90 text-white font-medium py-2 rounded-lg transition-all duration-200 transform hover:scale-105"
-              disabled={isLoading}
+              disabled={isSubmitting || isLoading || blocked}
             >
-              {isLoading ? 'Accesso in corso...' : 'Accedi'}
+              {blocked ? 'Bloccato. Riprova più tardi' : (isSubmitting || isLoading) ? 'Verifica...' : 'Accedi'}
             </Button>
             
             <div className="text-center">
@@ -102,14 +103,6 @@ const LoginForm: React.FC = () => {
               </Button>
             </div>
           </form>
-
-          <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <p className="text-sm text-gray-600 dark:text-gray-300 text-center">
-              <strong>Credenziali Demo:</strong><br />
-              Email: demo@moneyvision.app<br />
-              Password: demo123
-            </p>
-          </div>
         </CardContent>
       </Card>
     </div>

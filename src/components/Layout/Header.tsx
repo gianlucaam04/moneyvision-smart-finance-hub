@@ -1,9 +1,9 @@
-
 import React, { ReactNode } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { useNavigate } from 'react-router-dom';
 
 interface HeaderProps {
   title?: string;
@@ -13,6 +13,7 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ title, icon, className }) => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <header className={`bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 py-3 ${className || ''}`}>
@@ -46,7 +47,7 @@ const Header: React.FC<HeaderProps> = ({ title, icon, className }) => {
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700" align="end">
               <DropdownMenuItem 
-                onClick={() => alert('Funzionalità Profilo in arrivo! Presto potrai gestire le tue informazioni personali.')}
+                onClick={() => navigate('/profile')}
                 className="cursor-pointer text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
               >
                 Profilo

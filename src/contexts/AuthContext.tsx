@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,6 +14,7 @@ interface AuthContextType {
   deleteAccount: () => Promise<boolean>;
   exportData: () => Promise<boolean>;
   importData: (data: string) => Promise<boolean>;
+  updateUserProfile: (profile: { name?: string; email?: string }) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -58,38 +58,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    // Check active session
-    const getSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (session?.user) {
-          const userProfile = await loadUserProfile(session.user.id);
-          setUser(userProfile);
-        }
-      } catch (error) {
-        console.error('Error getting session:', error);
-      } finally {
-        setIsLoading(false);
+    // Sync session: initial + subsequent changes
+    setIsLoading(true);
+    const handleSession = async (session: any) => {
+      if (session?.user) {
+        const userProfile = await loadUserProfile(session.user.id);
+        setUser(userProfile);
+      } else {
+        setUser(null);
       }
+      setIsLoading(false);
     };
 
-    getSession();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state changed:', event, session);
+      handleSession(session);
+    });
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event, session);
-        
-        if (session?.user) {
-          const userProfile = await loadUserProfile(session.user.id);
-          setUser(userProfile);
-        } else {
-          setUser(null);
-        }
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error('Error getting session:', error);
         setIsLoading(false);
+      } else {
+        handleSession(session);
       }
-    );
+    });
 
     return () => subscription.unsubscribe();
   }, []);
@@ -113,7 +106,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsLoading(false);
         return false;
       }
-
+      setIsLoading(false);
       return true;
     } catch (error) {
       console.error('Login error:', error);
@@ -293,36 +286,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const importData = JSON.parse(data);
       
-      // Import categories
+      // Import user profile and preferences if present
+      if (importData.user) {
+        const { email, name, preferences } = importData.user;
+        if (email || name) {
+          await updateUserProfile({ email, name });
+        }
+        if (preferences) {
+          await updateUserPreferences(preferences);
+        }
+      }
+      
+      // Import categories with required defaults
       if (Array.isArray(importData.categories)) {
         const categories = importData.categories.map((cat: any) => ({
-          ...cat,
           user_id: user.id,
-          id: undefined // Let database generate new IDs
+          name: cat.name,
+          color: cat.color,
+          icon: cat.icon || '',
+          type: cat.type,
+          budget: cat.budget ?? 0,
         }));
-        
         await supabase.from('categories').insert(categories);
       }
       
-      // Import transactions
+      // Import transactions with required defaults
       if (Array.isArray(importData.transactions)) {
         const transactions = importData.transactions.map((trans: any) => ({
-          ...trans,
           user_id: user.id,
-          id: undefined // Let database generate new IDs
+          amount: trans.amount,
+          description: trans.description || '',
+          category: trans.category,
+          type: trans.type,
+          date: trans.date,
+          note: trans.note || '',
         }));
-        
         await supabase.from('transactions').insert(transactions);
       }
       
-      // Import goals
+      // Import savings goals with required defaults
       if (Array.isArray(importData.goals)) {
         const goals = importData.goals.map((goal: any) => ({
-          ...goal,
           user_id: user.id,
-          id: undefined // Let database generate new IDs
+          title: goal.title,
+          target_amount: goal.target_amount,
+          current_amount: goal.current_amount,
+          deadline: goal.deadline,
+          color: goal.color || '#000000',
+          description: goal.description || '',
+          is_completed: goal.is_completed ?? false,
         }));
-        
         await supabase.from('savings_goals').insert(goals);
       }
       
@@ -342,6 +355,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const updateUserProfile = async (profileData: { name?: string; email?: string }): Promise<boolean> => {
+    if (!user) return false;
+    setIsLoading(true);
+    try {
+      // Update auth table (email and metadata)
+      if ((profileData.email && profileData.email !== user.email) || (profileData.name && profileData.name !== user.name)) {
+        const payload: { email?: string; data?: Record<string, any> } = {};
+        if (profileData.email && profileData.email !== user.email) payload.email = profileData.email;
+        if (profileData.name && profileData.name !== user.name) payload.data = { name: profileData.name };
+        const { error: authError } = await supabase.auth.updateUser(payload);
+        if (authError) {
+          toast({ title: "Errore", description: authError.message, variant: "destructive" });
+          setIsLoading(false);
+          return false;
+        }
+      }
+      // Update profiles table
+      const { data: updatedProfile, error } = await supabase
+        .from('profiles')
+        .update(profileData)
+        .eq('id', user.id)
+        .select()
+        .single();
+      if (error || !updatedProfile) {
+        toast({ title: "Errore", description: "Impossibile aggiornare il profilo.", variant: "destructive" });
+        setIsLoading(false);
+        return false;
+      }
+      setUser(updatedProfile as User);
+      toast({ title: "Successo", description: "Profilo aggiornato con successo." });
+      setIsLoading(false);
+      return true;
+    } catch (err) {
+      console.error('Profilo update error:', err);
+      toast({ title: "Errore", description: "Impossibile aggiornare il profilo.", variant: "destructive" });
+      setIsLoading(false);
+      return false;
+    }
+  };
+
   const value = {
     user,
     isLoading,
@@ -352,7 +405,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     changePassword,
     deleteAccount,
     exportData,
-    importData
+    importData,
+    updateUserProfile
   };
 
   return (
