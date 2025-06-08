@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import type { Investment, InvestmentFormData } from '@/types/investments';
 import { finnhubApi } from './finnhubApi';
@@ -115,5 +114,22 @@ export const investmentsService = {
       console.error('Errore nell\'eliminazione investimento:', error);
       throw new Error('Impossibile eliminare l\'investimento');
     }
+  },
+
+  // Aggiorna investimento
+  async updateInvestment(id: string, data: Partial<InvestmentFormData>): Promise<Investment> {
+    const { data: updated, error } = await supabase
+      .from('investments')
+      .update(data)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Errore nell\'aggiornamento investimento:', error);
+      throw new Error('Impossibile aggiornare l\'investimento');
+    }
+
+    return updated;
   }
 };

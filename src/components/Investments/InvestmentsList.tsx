@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,11 +10,13 @@ import type { Investment } from '@/types/investments';
 interface InvestmentsListProps {
   investments: Investment[];
   onInvestmentDeleted: () => void;
+  onEdit?: (investment: Investment) => void;
 }
 
 const InvestmentsList: React.FC<InvestmentsListProps> = ({ 
   investments, 
-  onInvestmentDeleted 
+  onInvestmentDeleted,
+  onEdit
 }) => {
   const handleDelete = async (id: string, symbol: string) => {
     if (!confirm(`Sei sicuro di voler eliminare l'investimento ${symbol}?`)) {
@@ -181,14 +182,24 @@ const InvestmentsList: React.FC<InvestmentsListProps> = ({
                     </div>
                   </div>
 
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDelete(investment.id, investment.symbol)}
-                    className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-0 group-hover:opacity-100 transition-all duration-200"
-                  >
-                    <Trash2 size={16} />
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onEdit ? onEdit(investment) : null}
+                      className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 opacity-0 group-hover:opacity-100 transition-all duration-200"
+                    >
+                      <TrendingUp size={16} />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDelete(investment.id, investment.symbol)}
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-0 group-hover:opacity-100 transition-all duration-200"
+                    >
+                      <Trash2 size={16} />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
