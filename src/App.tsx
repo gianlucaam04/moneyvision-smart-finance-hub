@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
@@ -13,7 +14,7 @@ import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import Testing from './pages/Testing';
 import NotFound from './pages/NotFound';
-import PrivateRoute from './components/PrivateRoute';
+import PrivateRoute from './components/Auth/PrivateRoute';
 import ResetPassword from './pages/ResetPassword';
 import { Toaster } from 'sonner';
 

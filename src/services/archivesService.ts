@@ -1,6 +1,5 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import JSZip from 'jszip';
 import type { Archive } from '@/db/schema';
 
 export interface ArchiveData {
@@ -56,7 +55,7 @@ export const archivesService = {
     }
 
     // I dati sono già in formato JSON nel database, non serve decomprimere
-    return data.file_data as ArchiveData;
+    return data.file_data as unknown as ArchiveData;
   },
 
   // Crea un nuovo archivio per dati più vecchi di 3 anni
@@ -84,7 +83,7 @@ export const archivesService = {
       .insert({
         user_id: user.id,
         file_name: `archive_${dateRangeStart}_to_${dateRangeEnd}`,
-        file_data: archiveData,
+        file_data: archiveData as unknown as any,
         archive_type: 'auto_archive',
         date_range_start: dateRangeStart,
         date_range_end: dateRangeEnd

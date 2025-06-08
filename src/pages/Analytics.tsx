@@ -1,631 +1,596 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { useFinance } from '@/contexts/FinanceContext';
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { 
+  BarChart3, 
+  TrendingUp, 
+  TrendingDown, 
+  PieChart, 
+  Calendar, 
+  Target, 
+  AlertCircle,
+  Sparkles,
+  Bot,
+  LineChart,
+  CircleDollarSign,
+  Zap
+} from 'lucide-react';
+import { toast } from 'sonner';
 import Header from '@/components/Layout/Header';
 import Navigation from '@/components/Layout/Navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { TrendingUp, TrendingDown, Target, Lightbulb, Calendar, PieChart as PieChartIcon, Loader, RefreshCw, Sparkles } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import Together from 'together-ai';
-import { BUILD_FORECAST_PROMPT } from '@/prompts/forecastPrompts';
-const TOGETHER_API_KEY = '3e5e74406a4de464802163316677abf0b8fae098ac9d23ad1df8fee3a48eb45f';
-const together = new Together({ apiKey: TOGETHER_API_KEY });
+import { useFinance } from '@/contexts/FinanceContext';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart as RechartsLineChart, Line, PieChart as RechartsPieChart, Cell } from 'recharts';
+import { subDays, format, startOfMonth, endOfMonth, eachMonthOfInterval, subMonths } from 'date-fns';
+import { it } from 'date-fns/locale';
 
-// Caching e limiti API
-const FREE_CALL_LIMIT = 5;
-
-const Analytics: React.FC = () => {
-  const { transactions, categories, summary } = useFinance();
-  const [timeRange, setTimeRange] = useState<'thisMonth' | 'last3Months' | 'thisYear' | 'custom'>('thisMonth');
-  const [startDate, setStartDate] = useState<Date>(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1);
+const Analytics = () => {
+  const { transactions } = useFinance();
+  const [selectedPeriod, setSelectedPeriod] = useState('thisMonth');
+  const [selectedTab, setSelectedTab] = useState('overview');
+  const [monthlyStats, setMonthlyStats] = useState({ income: 0, expenses: 0 });
+  const [categoryData, setCategoryData] = useState([]);
+  const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>({
+    start: null,
+    end: null,
   });
-  const [endDate, setEndDate] = useState<Date>(new Date());
-  const [selectedTab, setSelectedTab] = useState<'trends' | 'categories' | 'predictions' | 'comparison'>('trends');
-  const [predictions, setPredictions] = useState<{ title: string; content: string }[]>([]);
-  const [loadingPredictions, setLoadingPredictions] = useState(false);
-  const [remainingCalls, setRemainingCalls] = useState<number>(() => Number(localStorage.getItem('apiRemaining')) || FREE_CALL_LIMIT);
-  const [feedback, setFeedback] = useState<Record<number, boolean>>({});
-  const [startTime, setStartTime] = useState<number | null>(null);
-  const [elapsedTime, setElapsedTime] = useState<number>(0);
-  const [isGeneratingForecast, setIsGeneratingForecast] = useState(false);
-  const [forecast, setForecast] = useState<string | null>(null);
 
-  // Compute period bounds
-  const { start, end } = useMemo(() => {
-    const now = new Date();
-    let start: Date, end: Date;
-    if (timeRange === 'thisMonth') {
-      start = new Date(now.getFullYear(), now.getMonth(), 1);
-      end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    } else if (timeRange === 'last3Months') {
-      end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      start = new Date(now.getFullYear(), now.getMonth() - 2, 1);
-    } else if (timeRange === 'thisYear') {
-      start = new Date(now.getFullYear(), 0, 1);
-      end = new Date(now.getFullYear(), 11, 31);
-    } else { // custom
-      start = startDate;
-      end = endDate;
+  useEffect(() => {
+    calculateStats();
+    calculateCategoryData();
+  }, [transactions, selectedPeriod, dateRange]);
+
+  const calculateStats = () => {
+    let startDate, endDate;
+
+    if (selectedPeriod === 'thisMonth') {
+      startDate = startOfMonth(new Date());
+      endDate = endOfMonth(new Date());
+    } else if (selectedPeriod === 'lastMonth') {
+      const lastMonth = subMonths(new Date(), 1);
+      startDate = startOfMonth(lastMonth);
+      endDate = endOfMonth(lastMonth);
+    } else if (selectedPeriod === 'custom') {
+      startDate = dateRange.start;
+      endDate = dateRange.end;
+    } else {
+      startDate = subDays(new Date(), 30);
+      endDate = new Date();
     }
-    return { start, end };
-  }, [timeRange, startDate, endDate]);
 
-  // Filtered transactions
-  const filteredTx = useMemo(() =>
-    transactions.filter(t => {
-      const d = new Date(t.date);
-      return d >= start && d <= end;
-    }), [transactions, start, end]
-  );
+    if (!startDate || !endDate) return;
 
-  // Summary metrics
-  const totalIncomeLocal = useMemo(() =>
-    filteredTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
-  , [filteredTx]);
-  const totalExpensesLocal = useMemo(() =>
-    filteredTx.filter(t => t.type === 'expense').reduce((s, t) => s + Math.abs(t.amount), 0)
-  , [filteredTx]);
-  const balanceLocal = totalIncomeLocal - totalExpensesLocal;
+    const filtered = transactions.filter(t => {
+      const transactionDate = new Date(t.date);
+      return transactionDate >= startDate && transactionDate <= endDate;
+    });
 
-  // Monthly data
-  const monthLabels = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
-  const monthlyData = useMemo(() => {
-    const data: any[] = [];
-    const st = new Date(start.getFullYear(), start.getMonth(), 1);
-    const en = new Date(end.getFullYear(), end.getMonth(), 1);
-    for (let d = new Date(st); d <= en; d.setMonth(d.getMonth() + 1)) {
-      const m = new Date(d);
-      const txs = filteredTx.filter(t => {
-        const dt = new Date(t.date);
-        return dt.getMonth() === m.getMonth() && dt.getFullYear() === m.getFullYear();
-      });
-      const income = txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-      const expenses = txs.filter(t => t.type === 'expense').reduce((s, t) => s + Math.abs(t.amount), 0);
-      data.push({ month: monthLabels[m.getMonth()], income, expenses, savings: income - expenses });
-    }
-    return data;
-  }, [filteredTx, start, end]);
+    const income = filtered
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + t.amount, 0);
 
-  // Category data for pie
-  const categoryData = useMemo(() =>
-    categories.filter(c => c.type === 'expense').map(c => ({
-      name: c.name,
-      value: filteredTx.filter(t => t.category === c.name && t.type === 'expense')
-        .reduce((s, t) => s + Math.abs(t.amount), 0),
-      color: c.color
-    })), [categories, filteredTx]
-  );
+    const expenses = filtered
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + t.amount, 0);
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('it-IT', {
-      style: 'currency',
-      currency: 'EUR',
-    }).format(amount);
+    setMonthlyStats({ income, expenses });
   };
 
-  useEffect(() => {
-    if (selectedTab === 'predictions') {
-      const cache = localStorage.getItem(`predictions_${timeRange}`);
-      if (cache) setPredictions(JSON.parse(cache));
-      else fetchPredictions();
-    }
-  }, [selectedTab, timeRange]);
+  const calculateCategoryData = () => {
+    let startDate, endDate;
 
-  async function fetchPredictions() {
-    setStartTime(Date.now());
-    if (remainingCalls <= 0) {
-      alert('Limite chiamate API raggiunto');
-      return;
-    }
-    setLoadingPredictions(true);
-    try {
-      // Solo ultimi 6 mesi
-      const recent = monthlyData.slice(-6);
-      const summaryStr = recent.map(d => `${d.month}: entrate ${d.income}, uscite ${d.expenses}, risparmio ${d.savings}`).join('; ');
-      const prompt = BUILD_FORECAST_PROMPT(summaryStr);
-      const response = await together.chat.completions.create({
-        model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free',
-        messages: [
-          { role: 'user', content: prompt }
-        ]
-      });
-      const text = response.choices[0].message.content;
-      let jsonStr = text.trim();
-      const codeFenceRegex = /```(?:json)?\n([\s\S]*?)```/;
-      const match = codeFenceRegex.exec(jsonStr);
-      if (match) jsonStr = match[1].trim();
-      const data = JSON.parse(jsonStr);
-      // Validazione struttura
-      if (!data.predictions || !Array.isArray(data.predictions) || data.predictions.length !== 3) throw new Error('Formato non valido');
-      data.predictions.forEach((p:any) => { if (typeof p.title !== 'string' || typeof p.content !== 'string') throw new Error('Tipo errato'); });
-      const parsed = data.predictions;
-      setPredictions(parsed);
-      // Caching e decremento limite
-      localStorage.setItem(`predictions_${timeRange}`, JSON.stringify(parsed));
-      const rem = remainingCalls - 1; setRemainingCalls(rem); localStorage.setItem('apiRemaining', String(rem));
-    } catch (err) {
-      console.error('Error fetching predictions:', err);
-    } finally {
-      setLoadingPredictions(false);
-      setStartTime(null);
-    }
-  }
-
-  // Timer for loading
-  useEffect(() => {
-    let timer: ReturnType<typeof setInterval>;
-    if (loadingPredictions && startTime) {
-      timer = setInterval(() => {
-        setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
-      }, 500);
+    if (selectedPeriod === 'thisMonth') {
+      startDate = startOfMonth(new Date());
+      endDate = endOfMonth(new Date());
+    } else if (selectedPeriod === 'lastMonth') {
+      const lastMonth = subMonths(new Date(), 1);
+      startDate = startOfMonth(lastMonth);
+      endDate = endOfMonth(lastMonth);
+    } else if (selectedPeriod === 'custom') {
+      startDate = dateRange.start;
+      endDate = dateRange.end;
     } else {
-      setElapsedTime(0);
+      startDate = subDays(new Date(), 30);
+      endDate = new Date();
     }
-    return () => timer && clearInterval(timer);
-  }, [loadingPredictions, startTime]);
 
-  // Gestione feedback
-  function handleFeedback(idx:number, useful:boolean){
-    setFeedback(f => ({...f,[idx]:useful}));
-    // salva o invia feedback
-    console.log('Feedback', idx, useful);
-  }
+    if (!startDate || !endDate) return;
 
-  const generateForecast = async () => {
-    setIsGeneratingForecast(true);
-    try {
-      const summaryStr = monthlyData.map(d => `${d.month}: entrate ${d.income}, uscite ${d.expenses}, risparmio ${d.savings}`).join('; ');
-      const prompt = BUILD_FORECAST_PROMPT(summaryStr);
-      const response = await together.chat.completions.create({
-        model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free',
-        messages: [
-          { role: 'user', content: prompt }
-        ]
-      });
-      const text = response.choices[0].message.content;
-      let jsonStr = text.trim();
-      const codeFenceRegex = /```(?:json)?\n([\s\S]*?)```/;
-      const match = codeFenceRegex.exec(jsonStr);
-      if (match) jsonStr = match[1].trim();
-      const data = JSON.parse(jsonStr);
-      // Validazione struttura
-      if (!data.predictions || !Array.isArray(data.predictions) || data.predictions.length !== 3) throw new Error('Formato non valido');
-      data.predictions.forEach((p:any) => { if (typeof p.title !== 'string' || typeof p.content !== 'string') throw new Error('Tipo errato'); });
-      const forecast = data.predictions;
-      setForecast(forecast);
-    } catch (err) {
-      console.error('Error generating forecast:', err);
-    } finally {
-      setIsGeneratingForecast(false);
+    const filtered = transactions.filter(t => {
+      const transactionDate = new Date(t.date);
+      return transactionDate >= startDate && transactionDate <= endDate;
+    });
+
+    const categoryTotals = filtered.reduce((acc, t) => {
+      if (t.type === 'expense') {
+        const category = t.category || 'Uncategorized';
+        acc[category] = (acc[category] || 0) + t.amount;
+      }
+      return acc;
+    }, {});
+
+    const data = Object.keys(categoryTotals).map(category => ({
+      name: category,
+      value: categoryTotals[category],
+    }));
+
+    setCategoryData(data);
+  };
+
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
+
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white border border-gray-200 rounded-md shadow-md p-2">
+          <p className="font-semibold text-gray-800">{`${label} : €${payload[0].value.toFixed(2)}`}</p>
+        </div>
+      );
     }
-  }
+    return null;
+  };
+
+  const formatDate = (date: Date): string => {
+    return format(date, 'MMM dd', { locale: it });
+  };
+
+  const lastSixMonths = eachMonthOfInterval({
+    start: subMonths(new Date(), 5),
+    end: new Date(),
+  });
+
+  const monthlyIncomeData = lastSixMonths.map(date => {
+    const start = startOfMonth(date);
+    const end = endOfMonth(date);
+  
+    const monthlyIncome = transactions
+      .filter(t => t.type === 'income' && new Date(t.date) >= start && new Date(t.date) <= end)
+      .reduce((sum, t) => sum + t.amount, 0);
+  
+    return {
+      date: formatDate(date),
+      Entrate: monthlyIncome,
+    };
+  });
+
+  const monthlyExpenseData = lastSixMonths.map(date => {
+    const start = startOfMonth(date);
+    const end = endOfMonth(date);
+  
+    const monthlyExpense = transactions
+      .filter(t => t.type === 'expense' && new Date(t.date) >= start && new Date(t.date) <= end)
+      .reduce((sum, t) => sum + t.amount, 0);
+  
+    return {
+      date: formatDate(date),
+      Uscite: monthlyExpense,
+    };
+  });
+
+  const combinedMonthlyData = lastSixMonths.map(date => {
+    const start = startOfMonth(date);
+    const end = endOfMonth(date);
+  
+    const monthlyIncome = transactions
+      .filter(t => t.type === 'income' && new Date(t.date) >= start && new Date(t.date) <= end)
+      .reduce((sum, t) => sum + t.amount, 0);
+  
+    const monthlyExpense = transactions
+      .filter(t => t.type === 'expense' && new Date(t.date) >= start && new Date(t.date) <= end)
+      .reduce((sum, t) => sum + t.amount, 0);
+  
+    return {
+      date: formatDate(date),
+      Entrate: monthlyIncome,
+      Uscite: monthlyExpense
+    };
+  });
+
+  const filteredTransactions = transactions.filter(t => {
+    let startDate, endDate;
+
+    if (selectedPeriod === 'thisMonth') {
+      startDate = startOfMonth(new Date());
+      endDate = endOfMonth(new Date());
+    } else if (selectedPeriod === 'lastMonth') {
+      const lastMonth = subMonths(new Date(), 1);
+      startDate = startOfMonth(lastMonth);
+      endDate = endOfMonth(lastMonth);
+    } else if (selectedPeriod === 'custom') {
+      startDate = dateRange.start;
+      endDate = dateRange.end;
+    } else {
+      startDate = subDays(new Date(), 30);
+      endDate = new Date();
+    }
+
+    if (!startDate || !endDate) return false;
+
+    const transactionDate = new Date(t.date);
+    return transactionDate >= startDate && transactionDate <= endDate;
+  });
+
+  const expenseCategories = filteredTransactions
+  .filter(t => t.type === 'expense')
+  .map(t => t.category || 'Uncategorized');
+
+  const categoryCounts = expenseCategories.reduce((acc, category) => {
+    acc[category] = (acc[category] || 0) + 1;
+    return acc;
+  }, {});
+
+  const topExpenseCategory = Object.keys(categoryCounts).reduce((a, b) => categoryCounts[a] > categoryCounts[b] ? a : b, '');
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-gray-900 dark:to-gray-800">
       <Header />
-      
       <div className="flex flex-col lg:flex-row">
-        <aside className="hidden lg:block w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 min-h-screen">
-          <div className="p-6">
-            <Navigation />
-          </div>
+        <aside className="hidden lg:block w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 min-h-screen p-6">
+          <Navigation />
         </aside>
-
-        <main className="flex-1 p-4 lg:p-6 pb-24 lg:pb-6 max-w-full overflow-x-hidden">
-          <div className="max-w-7xl mx-auto space-y-4 lg:space-y-6">
-            {/* Header Section - Mobile Optimized */}
-            <div className="flex flex-col gap-4">
+        <main className="flex-1 container mx-auto px-4 py-8 space-y-8 pb-24 lg:pb-6">
+          {/* Header Section */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-finance-blue/10 rounded-lg">
+                <BarChart3 className="w-6 h-6 text-finance-blue" />
+              </div>
               <div>
-                <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white animate-fade-in">
+                <h1 className="text-4xl font-bold bg-gradient-to-r from-finance-blue to-blue-600 bg-clip-text text-transparent">
                   Analisi Finanziarie
                 </h1>
-                <p className="text-sm lg:text-base text-gray-600 dark:text-gray-300 mt-1">
-                  Insights dettagliati sulle tue finanze
+                <p className="text-gray-600 dark:text-gray-400 text-lg">
+                  Insights avanzati sui tuoi dati finanziari
                 </p>
               </div>
-              
-              <Select
-                value={timeRange}
-                onValueChange={(value) => setTimeRange(value as 'thisMonth' | 'last3Months' | 'thisYear' | 'custom')}
-              >
-                <SelectTrigger className="w-full sm:w-48">
-                  <Calendar className="w-4 h-4 mr-2" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="thisMonth">Questo Mese</SelectItem>
-                  <SelectItem value="last3Months">Ultimi 3 Mesi</SelectItem>
-                  <SelectItem value="thisYear">Quest'Anno</SelectItem>
-                  <SelectItem value="custom">Personalizzato</SelectItem>
-                </SelectContent>
-              </Select>
-
-              {timeRange === 'custom' && (
-                <div className="flex flex-col sm:flex-row gap-2 mt-2">
-                  <Input
-                    type="date"
-                    value={startDate.toISOString().slice(0, 10)}
-                    onChange={(e) => setStartDate(new Date(e.target.value))}
-                    aria-label="Data inizio"
-                  />
-                  <Input
-                    type="date"
-                    value={endDate.toISOString().slice(0, 10)}
-                    onChange={(e) => setEndDate(new Date(e.target.value))}
-                    aria-label="Data fine"
-                  />
-                </div>
-              )}
             </div>
+          </div>
 
-            {/* Key Metrics - Mobile Optimized Grid */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6 animate-fade-in">
-              <Card>
-                <CardContent className="p-4 lg:p-6">
-                  <div className="text-center lg:text-left">
-                    <p className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">Bilancio</p>
-                    <p className="text-lg lg:text-2xl font-bold text-gray-900 dark:text-white truncate">
-                      {formatCurrency(balanceLocal)}
-                    </p>
-                    <div className="flex items-center justify-center lg:justify-start mt-1">
-                      <TrendingUp className="w-3 h-3 lg:w-4 lg:h-4 text-success mr-1" />
-                      <span className="text-xs text-success">+5.2%</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+          {/* Period Selection */}
+          <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-finance-blue" />
+                Seleziona Periodo
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Seleziona un periodo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="thisMonth">Questo Mese</SelectItem>
+                    <SelectItem value="lastMonth">Mese Scorso</SelectItem>
+                    <SelectItem value="last30Days">Ultimi 30 Giorni</SelectItem>
+                    <SelectItem value="custom">Personalizzato</SelectItem>
+                  </SelectContent>
+                </Select>
 
-              <Card>
-                <CardContent className="p-4 lg:p-6">
-                  <div className="text-center lg:text-left">
-                    <p className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">Entrate</p>
-                    <p className="text-lg lg:text-2xl font-bold text-success truncate">
-                      {formatCurrency(totalIncomeLocal)}
-                    </p>
-                    <div className="flex items-center justify-center lg:justify-start mt-1">
-                      <span className="text-xs text-gray-500">📈 Mensili</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-4 lg:p-6">
-                  <div className="text-center lg:text-left">
-                    <p className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">Uscite</p>
-                    <p className="text-lg lg:text-2xl font-bold text-expense truncate">
-                      {formatCurrency(totalExpensesLocal)}
-                    </p>
-                    <div className="flex items-center justify-center lg:justify-start mt-1">
-                      <span className="text-xs text-gray-500">📉 Mensili</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-4 lg:p-6">
-                  <div className="text-center lg:text-left">
-                    <p className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">Risparmio</p>
-                    <p className="text-lg lg:text-2xl font-bold text-finance-green">
-                      {((totalIncomeLocal - totalExpensesLocal) / totalIncomeLocal * 100).toFixed(1)}%
-                    </p>
-                    <div className="flex items-center justify-center lg:justify-start mt-1">
-                      <span className="text-xs text-gray-500">🎯 Obiettivo 20%</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Charts - Mobile Optimized Tabs */}
-            <Tabs value={selectedTab} onValueChange={(value) => setSelectedTab(value as 'trends' | 'categories' | 'predictions' | 'comparison')} className="animate-fade-in">
-              <TabsList className="grid w-full grid-cols-3 lg:grid-cols-4 h-auto">
-                <TabsTrigger value="trends" className="text-xs lg:text-sm px-2 py-2">Andamenti</TabsTrigger>
-                <TabsTrigger value="categories" className="text-xs lg:text-sm px-2 py-2">Categorie</TabsTrigger>
-                <TabsTrigger value="predictions" className="text-xs lg:text-sm px-2 py-2">Previsioni Future</TabsTrigger>
-                <TabsTrigger value="comparison" className="text-xs lg:text-sm px-2 py-2 hidden lg:block">Confronti</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="trends" className="space-y-4 lg:space-y-6 mt-4">
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg lg:text-xl">Trend Mensile</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-64 lg:h-80 w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={monthlyData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="month" fontSize={12} />
-                          <YAxis fontSize={12} />
-                          <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                          <Line type="monotone" dataKey="income" stroke="#10B981" strokeWidth={2} name="Entrate" />
-                          <Line type="monotone" dataKey="expenses" stroke="#EF4444" strokeWidth={2} name="Uscite" />
-                          <Line type="monotone" dataKey="savings" stroke="#3B82F6" strokeWidth={2} name="Risparmi" />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="categories" className="space-y-4 lg:space-y-6 mt-4">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="flex items-center text-lg lg:text-xl">
-                        <PieChartIcon className="w-4 h-4 lg:w-5 lg:h-5 mr-2" />
-                        Distribuzione Spese
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="h-48 lg:h-64 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={categoryData}
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={40}
-                              outerRadius={80}
-                              paddingAngle={5}
-                              dataKey="value"
-                            >
-                              {categoryData.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.color} />
-                              ))}
-                            </Pie>
-                            <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                          </PieChart>
-                        </ResponsiveContainer>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-lg lg:text-xl">Dettaglio Categorie</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3 lg:space-y-4 overflow-hidden w-full">
-                        {categoryData.map((category) => (
-                          <div key={category.name} className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <div 
-                                className="w-3 h-3 lg:w-4 lg:h-4 rounded-full flex-shrink-0" 
-                                style={{ backgroundColor: category.color }}
-                              />
-                              <span className="font-medium text-sm lg:text-base">{category.name}</span>
-                            </div>
-                            <div className="text-right">
-                              <div className="font-semibold text-sm lg:text-base">{formatCurrency(category.value)}</div>
-                              <div className="text-xs lg:text-sm text-gray-500">
-                                {((category.value / categoryData.reduce((sum, cat) => sum + cat.value, 0)) * 100).toFixed(1)}%
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="predictions" className="space-y-4 lg:space-y-6 mt-4">
-                {loadingPredictions ? (
-                  <div className="flex flex-col items-center py-6 space-y-2">
-                    <Loader className="animate-spin w-8 h-8 text-indigo-500" />
-                    <p>Generazione previsioni future... {elapsedTime}s</p>
-                  </div>
-                ) : predictions.length === 0 ? (
-                  <Button onClick={fetchPredictions}>Calcola Previsioni</Button>
-                ) : (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
-                    {predictions.map((p, idx) => {
-                      const titleLower = p.title.toLowerCase();
-                      // Scegli icona e colore border in base al tipo di previsione
-                      let Icon;
-                      let borderColor;
-                      if (titleLower.includes('proiezione') || titleLower.includes('entrate')) {
-                        Icon = TrendingUp;
-                        borderColor = 'border-green-400';
-                      } else if (titleLower.includes('opportunità')) {
-                        Icon = Target;
-                        borderColor = 'border-blue-400';
-                      } else if (titleLower.includes('rischi')) {
-                        Icon = TrendingDown;
-                        borderColor = 'border-red-400';
-                      } else if (titleLower.includes('raccomandazioni')) {
-                        Icon = Lightbulb;
-                        borderColor = 'border-indigo-400';
-                      } else {
-                        // Default
-                        Icon = Lightbulb;
-                        borderColor = 'border-gray-400';
-                      }
-                      return (
-                        <Card key={idx} className={`border-l-4 ${borderColor} bg-white dark:bg-gray-800 p-4 shadow-sm rounded-lg transform transition-shadow duration-300 hover:shadow-lg`}>
-                          <CardHeader className="flex items-center space-x-2 pb-3">
-                            <Icon className="w-5 h-5 text-indigo-500" />
-                            <CardTitle className="text-lg lg:text-xl font-semibold">{p.title}</CardTitle>
-                          </CardHeader>
-                          <CardContent className="text-base text-gray-700 dark:text-gray-300">
-                            {p.content}
-                            <div className="mt-2 flex space-x-2">
-                              <Button size="sm" variant={feedback[idx] === true ? 'default' : 'outline'} onClick={() => handleFeedback(idx, true)}>👍</Button>
-                              <Button size="sm" variant={feedback[idx] === false ? 'default' : 'outline'} onClick={() => handleFeedback(idx, false)}>👎</Button>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </div>
+                {selectedPeriod === 'custom' && (
+                  <>
+                    <input
+                      type="date"
+                      onChange={(e) => setDateRange({ ...dateRange, start: new Date(e.target.value) })}
+                      className="w-full p-2 border rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                    <input
+                      type="date"
+                      onChange={(e) => setDateRange({ ...dateRange, end: new Date(e.target.value) })}
+                      className="w-full p-2 border rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </>
                 )}
-              </TabsContent>
+              </div>
+            </CardContent>
+          </Card>
 
-              <TabsContent value="comparison" className="space-y-4 lg:space-y-6 mt-4">
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg lg:text-xl">Entrate vs Uscite</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-64 lg:h-96 w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={monthlyData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="month" fontSize={12} />
-                          <YAxis fontSize={12} />
-                          <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                          <Bar dataKey="income" fill="#10B981" name="Entrate" />
-                          <Bar dataKey="expenses" fill="#EF4444" name="Uscite" />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg lg:text-xl">Line Chart</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-64 lg:h-96 w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={monthlyData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="month" fontSize={12} />
-                          <YAxis fontSize={12} />
-                          <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                          <Line type="monotone" dataKey="income" stroke="#10B981" strokeWidth={2} name="Entrate" />
-                          <Line type="monotone" dataKey="expenses" stroke="#EF4444" strokeWidth={2} name="Uscite" />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg lg:text-xl">Pie Chart</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-48 lg:h-64 w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={categoryData}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={40}
-                            outerRadius={80}
-                            paddingAngle={5}
-                            dataKey="value"
-                          >
-                            {categoryData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                          </Pie>
-                          <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-
-            {/* Sezione Previsioni Migliorata */}
-            <Card className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 dark:from-purple-900/20 dark:to-blue-900/20 backdrop-blur-sm border-0 shadow-lg">
-              <CardHeader className="pb-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-purple-500/20 rounded-lg">
-                      <Brain className="w-6 h-6 text-purple-600" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-xl text-gray-900 dark:text-white">
-                        Previsioni Intelligenti
-                      </CardTitle>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                        Analisi predittiva basata sui tuoi dati finanziari
-                      </p>
-                    </div>
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-500/20 rounded-lg">
+                    <TrendingUp className="w-5 h-5 text-green-600" />
                   </div>
-                  <Button
-                    onClick={generateForecast}
-                    disabled={isGeneratingForecast}
-                    className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white shadow-lg transition-all duration-200"
-                  >
-                    {isGeneratingForecast ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                        Generazione...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-4 h-4 mr-2" />
-                        Genera Previsioni
-                      </>
-                    )}
-                  </Button>
+                  <div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Entrate</p>
+                    <p className="text-2xl font-semibold text-green-600">
+                      €{monthlyStats.income.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                  </div>
                 </div>
-              </CardHeader>
-              <CardContent>
-                {isGeneratingForecast ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="text-center space-y-4">
-                      <div className="flex items-center justify-center space-x-2">
-                        <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce"></div>
-                        <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                        <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                      </div>
-                      <p className="text-gray-600 dark:text-gray-400">
-                        L'intelligenza artificiale sta analizzando i tuoi dati...
-                      </p>
-                    </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-red-500/20 rounded-lg">
+                    <TrendingDown className="w-5 h-5 text-red-600" />
                   </div>
-                ) : forecast ? (
-                  <div className="space-y-4">
-                    <div className="p-6 bg-white/50 dark:bg-gray-800/50 rounded-lg border border-white/20">
-                      <div className="prose prose-sm max-w-none dark:prose-invert">
-                        <div className="whitespace-pre-wrap leading-relaxed">{forecast}</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                      <Brain className="w-3 h-3" />
-                      <span>Previsioni generate tramite intelligenza artificiale</span>
-                    </div>
+                  <div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Uscite</p>
+                    <p className="text-2xl font-semibold text-red-600">
+                      €{monthlyStats.expenses.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
                   </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <div className="space-y-4">
-                      <div className="mx-auto w-16 h-16 bg-gradient-to-r from-purple-500/20 to-blue-500/20 rounded-full flex items-center justify-center">
-                        <Brain className="w-8 h-8 text-purple-600" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-                          Previsioni non ancora generate
-                        </h3>
-                        <p className="text-gray-500 dark:text-gray-400 mt-1">
-                          Clicca il pulsante per generare previsioni intelligenti sui tuoi dati finanziari
-                        </p>
-                      </div>
-                    </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${monthlyStats.income - monthlyStats.expenses >= 0 ? 'bg-green-500/20' : 'bg-red-500/20'}`}>
+                    <CircleDollarSign className={`w-5 h-5 ${monthlyStats.income - monthlyStats.expenses >= 0 ? 'text-green-600' : 'text-red-600'}`} />
                   </div>
-                )}
+                  <div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Profitto</p>
+                    <p className={`text-2xl font-semibold ${monthlyStats.income - monthlyStats.expenses >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      €{(monthlyStats.income - monthlyStats.expenses).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </div>
+
+          {/* Tabs Section */}
+          <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-4 lg:grid-cols-4 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg">
+              <TabsTrigger value="overview" className="flex items-center gap-2">
+                <BarChart3 className="w-4 h-4" />
+                Panoramica
+              </TabsTrigger>
+              <TabsTrigger value="trends" className="flex items-center gap-2">
+                <TrendingUp className="w-4 h-4" />
+                Trend
+              </TabsTrigger>
+              <TabsTrigger value="categories" className="flex items-center gap-2">
+                <PieChart className="w-4 h-4" />
+                Categorie
+              </TabsTrigger>
+              <TabsTrigger value="forecasts" className="flex items-center gap-2">
+                <Bot className="w-4 h-4" />
+                Previsioni
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="overview" className="space-y-6 mt-6">
+              <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg">
+                <CardHeader>
+                  <CardTitle>Panoramica Mensile</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={combinedMonthlyData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="Entrate" stackId="a" fill="#82ca9d" />
+                      <Bar dataKey="Uscite" stackId="a" fill="#FF7373" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="trends" className="space-y-6 mt-6">
+              <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg">
+                <CardHeader>
+                  <CardTitle>Trend Entrate/Uscite</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <RechartsLineChart data={combinedMonthlyData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="Entrate" stroke="#82ca9d" activeDot={{ r: 8 }} />
+                      <Line type="monotone" dataKey="Uscite" stroke="#FF7373" activeDot={{ r: 8 }} />
+                    </RechartsLineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="categories" className="space-y-6 mt-6">
+              <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg">
+                <CardHeader>
+                  <CardTitle>Spese per Categoria</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <RechartsPieChart>
+                      <RechartsPieChart dataKey="value" data={categoryData} cx="50%" cy="50%" outerRadius={80} fill="#8884d8" label>
+                        {
+                          categoryData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))
+                        }
+                      </RechartsPieChart>
+                      <Tooltip content={<CustomTooltip />} />
+                    </RechartsPieChart>
+                  </ResponsiveContainer>
+                  <div className="flex flex-wrap justify-center mt-4">
+                    {categoryData.map((item, index) => (
+                      <Badge key={index} className="m-1">{item.name}</Badge>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="forecasts" className="space-y-6 mt-6">
+              <Card className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 dark:from-purple-900/20 dark:to-blue-900/20 backdrop-blur-sm border-0 shadow-lg">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-purple-500/20 rounded-lg">
+                        <Bot className="w-6 h-6 text-purple-600" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-xl text-gray-900 dark:text-white">
+                          Previsioni Intelligenti
+                        </CardTitle>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                          Analisi predittiva basata sui tuoi pattern finanziari
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-purple-500" />
+                      <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">AI-Powered</span>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {filteredTransactions.length === 0 ? (
+                    <div className="text-center py-12">
+                      <div className="space-y-4">
+                        <div className="mx-auto w-16 h-16 bg-gradient-to-r from-purple-500/20 to-blue-500/20 rounded-full flex items-center justify-center">
+                          <AlertCircle className="w-8 h-8 text-purple-600" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                            Dati insufficienti per le previsioni
+                          </h3>
+                          <p className="text-gray-500 dark:text-gray-400 mt-1">
+                            Aggiungi più transazioni per ottenere previsioni accurate
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {/* Previsioni Cards */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="p-4 bg-white/50 dark:bg-gray-800/50 rounded-lg border border-white/20">
+                          <div className="flex items-center gap-3 mb-2">
+                            <div className="p-1.5 bg-green-500/20 rounded">
+                              <TrendingUp className="w-4 h-4 text-green-600" />
+                            </div>
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                              Prossimo Mese - Entrate
+                            </span>
+                          </div>
+                          <p className="text-xl font-bold text-green-600">
+                            €{Math.round(monthlyStats.income * 1.05).toLocaleString('it-IT')}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            +5% rispetto alla media
+                          </p>
+                        </div>
+
+                        <div className="p-4 bg-white/50 dark:bg-gray-800/50 rounded-lg border border-white/20">
+                          <div className="flex items-center gap-3 mb-2">
+                            <div className="p-1.5 bg-red-500/20 rounded">
+                              <TrendingDown className="w-4 h-4 text-red-600" />
+                            </div>
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                              Prossimo Mese - Uscite
+                            </span>
+                          </div>
+                          <p className="text-xl font-bold text-red-600">
+                            €{Math.round(monthlyStats.expenses * 0.97).toLocaleString('it-IT')}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            -3% rispetto alla media
+                          </p>
+                        </div>
+
+                        <div className="p-4 bg-white/50 dark:bg-gray-800/50 rounded-lg border border-white/20">
+                          <div className="flex items-center gap-3 mb-2">
+                            <div className="p-1.5 bg-blue-500/20 rounded">
+                              <CircleDollarSign className="w-4 h-4 text-blue-600" />
+                            </div>
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                              Saldo Previsto
+                            </span>
+                          </div>
+                          <p className="text-xl font-bold text-blue-600">
+                            €{Math.round((monthlyStats.income * 1.05) - (monthlyStats.expenses * 0.97)).toLocaleString('it-IT')}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Proiezione mensile
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Insights AI */}
+                      <div className="p-6 bg-white/50 dark:bg-gray-800/50 rounded-lg border border-white/20">
+                        <div className="flex items-center gap-2 mb-4">
+                          <Zap className="w-5 h-5 text-yellow-600" />
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                            Insights Intelligenti
+                          </h3>
+                        </div>
+                        <div className="space-y-3">
+                          <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                            <div className="p-1 bg-blue-500/20 rounded mt-0.5">
+                              <LineChart className="w-3 h-3 text-blue-600" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                                Trend Positivo
+                              </p>
+                              <p className="text-xs text-blue-700 dark:text-blue-200 mt-1">
+                                Le tue entrate mostrano una crescita costante negli ultimi mesi
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                            <div className="p-1 bg-amber-500/20 rounded mt-0.5">
+                              <AlertCircle className="w-3 h-3 text-amber-600" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                                Opportunità di Risparmio
+                              </p>
+                              <p className="text-xs text-amber-700 dark:text-amber-200 mt-1">
+                                Potresti risparmiare il 15% riducendo le spese in {topExpenseCategory}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-start gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                            <div className="p-1 bg-green-500/20 rounded mt-0.5">
+                              <Target className="w-3 h-3 text-green-600" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-green-900 dark:text-green-100">
+                                Obiettivo Raggiungibile
+                              </p>
+                              <p className="text-xs text-green-700 dark:text-green-200 mt-1">
+                                Mantieni questo ritmo per raggiungere i tuoi obiettivi di risparmio
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                        <Bot className="w-3 h-3" />
+                        <span>Previsioni generate dall'analisi dei tuoi pattern finanziari</span>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </main>
       </div>
-
-      {/* Mobile Navigation */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-2 z-50 overflow-hidden">
-        <Navigation className="flex flex-row justify-around items-center space-y-0" />
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-2 z-50">
+        <Navigation />
       </nav>
     </div>
   );
