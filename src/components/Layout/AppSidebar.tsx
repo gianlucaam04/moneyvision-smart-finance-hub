@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
@@ -222,7 +221,6 @@ const AppSidebar: React.FC = () => {
             {/* User Info */}
             <div className="flex items-center space-x-3 group-data-[collapsible=icon]:justify-center">
               <Avatar className="w-8 h-8">
-                <AvatarImage src={user.avatar} alt={user.name} />
                 <AvatarFallback className="bg-finance-blue text-white text-sm">
                   {getUserInitials(user.name)}
                 </AvatarFallback>
