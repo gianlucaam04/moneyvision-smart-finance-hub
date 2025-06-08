@@ -30,7 +30,8 @@ import {
   Sun,
   Shield,
   Smartphone,
-  Database
+  Database,
+  AlertTriangle
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -53,6 +54,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { supabase } from '@/integrations/supabase/client';
 
 const Settings: React.FC = () => {
   const { toast } = useToast();
@@ -65,6 +67,7 @@ const Settings: React.FC = () => {
   const [showTermsDialog, setShowTermsDialog] = useState(false);
   const [showPrivacyDialog, setShowPrivacyDialog] = useState(false);
   const [showSupportDialog, setShowSupportDialog] = useState(false);
+  const [showDeleteAllDataDialog, setShowDeleteAllDataDialog] = useState(false);
   
   // State per il cambio password
   const [oldPassword, setOldPassword] = useState('');
@@ -241,6 +244,74 @@ const Settings: React.FC = () => {
     }
   };
 
+  // Nuova funzione per eliminare tutti i dati dell'utente
+  const handleDeleteAllData = async () => {
+    try {
+      if (!user) {
+        toast({
+          title: "❌ Errore",
+          description: "Utente non autenticato",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Elimina tutti i dati dell'utente dalle varie tabelle
+      const { error: transactionsError } = await supabase
+        .from('transactions')
+        .delete()
+        .eq('user_id', user.id);
+
+      const { error: categoriesError } = await supabase
+        .from('categories')
+        .delete()
+        .eq('user_id', user.id);
+
+      const { error: goalsError } = await supabase
+        .from('savings_goals')
+        .delete()
+        .eq('user_id', user.id);
+
+      const { error: investmentsError } = await supabase
+        .from('investments')
+        .delete()
+        .eq('user_id', user.id);
+
+      const { error: archivesError } = await supabase
+        .from('archives')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (transactionsError || categoriesError || goalsError || investmentsError || archivesError) {
+        console.error('Errore durante l\'eliminazione dei dati:', {
+          transactionsError,
+          categoriesError,
+          goalsError,
+          investmentsError,
+          archivesError
+        });
+        throw new Error('Errore durante l\'eliminazione dei dati');
+      }
+
+      setShowDeleteAllDataDialog(false);
+      toast({
+        title: "🗑️ Dati eliminati",
+        description: "Tutti i tuoi dati finanziari sono stati eliminati con successo.",
+      });
+
+      // Refresh della pagina per aggiornare i dati
+      window.location.reload();
+
+    } catch (error) {
+      console.error('Errore nell\'eliminazione dei dati:', error);
+      toast({
+        title: "❌ Errore",
+        description: "Non è stato possibile eliminare tutti i dati.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <Header />
@@ -402,6 +473,24 @@ const Settings: React.FC = () => {
 
                     <Separator />
 
+                    <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg border border-orange-200 dark:border-orange-800">
+                      <h4 className="font-semibold text-orange-900 dark:text-orange-100 mb-2 flex items-center">
+                        <AlertTriangle className="w-4 h-4 mr-2" />
+                        Cancellazione Dati
+                      </h4>
+                      <p className="text-sm text-orange-700 dark:text-orange-300 mb-4">
+                        Elimina tutti i tuoi dati finanziari (transazioni, categorie, obiettivi, investimenti) mantenendo l'account attivo.
+                      </p>
+                      <Button 
+                        variant="outline"
+                        onClick={() => setShowDeleteAllDataDialog(true)}
+                        className="w-full border-orange-300 text-orange-700 hover:bg-orange-100 dark:border-orange-700 dark:text-orange-300 dark:hover:bg-orange-900/40"
+                      >
+                        <Database className="w-4 h-4 mr-2" />
+                        Elimina Tutti i Dati
+                      </Button>
+                    </div>
+
                     <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg border border-red-200 dark:border-red-800">
                       <h4 className="font-semibold text-red-900 dark:text-red-100 mb-2">
                         Zona Pericolosa
@@ -538,6 +627,43 @@ const Settings: React.FC = () => {
             <AlertDialogCancel>Annulla</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmDelete} className="bg-red-600 hover:bg-red-700">
               Elimina Account
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+      {/* Dialogo Eliminazione Tutti i Dati */}
+      <AlertDialog open={showDeleteAllDataDialog} onOpenChange={setShowDeleteAllDataDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center text-orange-700 dark:text-orange-300">
+              <AlertTriangle className="w-5 h-5 mr-2" />
+              Eliminare tutti i dati finanziari?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Questa azione eliminerà permanentemente:
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>Tutte le transazioni</li>
+                <li>Tutte le categorie personalizzate</li>
+                <li>Tutti gli obiettivi di risparmio</li>
+                <li>Tutti gli investimenti</li>
+                <li>Tutti i dati storici archiviati</li>
+              </ul>
+              <div className="mt-3 p-3 bg-orange-50 dark:bg-orange-900/20 rounded border border-orange-200 dark:border-orange-800">
+                <p className="text-sm font-medium text-orange-800 dark:text-orange-200">
+                  Il tuo account rimarrà attivo, ma tutti i dati finanziari saranno persi per sempre.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteAllData} 
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              <Database className="w-4 h-4 mr-2" />
+              Elimina Tutti i Dati
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
