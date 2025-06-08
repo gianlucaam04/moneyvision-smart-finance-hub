@@ -23,7 +23,7 @@ import {
   TrendingUp,
   Settings,
   Target,
-  Tag,
+  Filter as Tag,
   BarChart,
   Archive,
   LogOut,

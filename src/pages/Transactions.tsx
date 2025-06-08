@@ -1,8 +1,7 @@
 
 import React, { useState } from 'react';
 import { useFinance } from '@/contexts/FinanceContext';
-import Header from '@/components/Layout/Header';
-import Navigation from '@/components/Layout/Navigation';
+import Layout from '@/components/Layout/Layout';
 import TransactionForm from '@/components/Transactions/TransactionForm';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,7 +21,6 @@ const Transactions: React.FC = () => {
   const [editingTransaction, setEditingTransaction] = useState<any>(null);
   const [transactionNote, setTransactionNote] = useState('');
 
-
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('it-IT', {
       style: 'currency',
@@ -37,8 +35,6 @@ const Transactions: React.FC = () => {
       year: 'numeric',
     });
   };
-
-
 
   const filteredTransactions = transactions.filter(transaction => {
     const matchesSearch = transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -82,218 +78,197 @@ const Transactions: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <Header />
-      
-      <div className="flex flex-col lg:flex-row">
-        <aside className="hidden lg:block w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 min-h-screen">
-          <div className="p-6">
-            <Navigation />
-          </div>
-        </aside>
+    <Layout>
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Gestione Transazioni
+          </h1>
+          <p className="text-gray-600 dark:text-gray-300 mt-1">
+            Monitora e organizza le tue entrate e uscite
+          </p>
+        </div>
 
-        <main className="flex-1 p-4 lg:p-6 pb-24 lg:pb-6 max-w-full overflow-x-hidden">
-          <div className="max-w-7xl mx-auto space-y-4 lg:space-y-6">
-            {/* Header Section - Mobile Optimized */}
-            <div className="flex flex-col gap-4">
-              <div>
-                <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white animate-fade-in">
-                  Gestione Transazioni
-                </h1>
-                <p className="text-sm lg:text-base text-gray-600 dark:text-gray-300 mt-1">
-                  Monitora e organizza le tue entrate e uscite
-                </p>
+        {/* Add Transaction Button */}
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button className="bg-gradient-to-r from-finance-blue to-finance-green hover:from-finance-blue/90 hover:to-finance-green/90 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105">
+              <CirclePlus className="w-4 h-4 mr-2" />
+              Nuova Transazione
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+            <TransactionForm />
+          </DialogContent>
+        </Dialog>
+
+        {/* Filters */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="space-y-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Cerca transazioni..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
               </div>
               
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button className="w-full sm:w-auto bg-gradient-to-r from-finance-blue to-finance-green hover:from-finance-blue/90 hover:to-finance-green/90 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105">
-                    <CirclePlus className="w-4 h-4 mr-2" />
-                    Nuova Transazione
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 max-w-[95vw] sm:max-w-md w-full overflow-hidden">
-                  <TransactionForm />
-                </DialogContent>
-              </Dialog>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger>
+                    <Filter className="w-4 h-4 mr-2" />
+                    <SelectValue placeholder="Categoria" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tutte le categorie</SelectItem>
+                    {categories.map(category => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tutti</SelectItem>
+                    <SelectItem value="income">Entrate 📈</SelectItem>
+                    <SelectItem value="expense">Uscite 📉</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+          </CardContent>
+        </Card>
 
-            {/* Filters Section - Mobile Optimized */}
-            <Card className="animate-fade-in">
-              <CardContent className="p-4">
-                <div className="space-y-4">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                    <Input
-                      placeholder="Cerca transazioni..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                      <SelectTrigger>
-                        <Filter className="w-4 h-4 mr-2" />
-                        <SelectValue placeholder="Categoria" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Tutte le categorie</SelectItem>
-                        {categories.map(category => (
-                          <SelectItem key={category} value={category}>
-                            {category}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-
-                    <Select value={typeFilter} onValueChange={setTypeFilter}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Tipo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Tutti</SelectItem>
-                        <SelectItem value="income">Entrate 📈</SelectItem>
-                        <SelectItem value="expense">Uscite 📉</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Transactions List - Mobile Optimized */}
-            <Card className="animate-fade-in">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center justify-between text-lg lg:text-xl">
-                  <span>Transazioni ({filteredTransactions.length})</span>
-                  <span className="text-sm font-normal text-gray-500 dark:text-gray-400 hidden sm:block">
-                    Recenti
-                  </span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                {filteredTransactions.length === 0 ? (
-                  <div className="text-center py-8 lg:py-12 text-gray-500 dark:text-gray-400 px-4">
-                    <span className="text-4xl lg:text-6xl mb-4 block">💳</span>
-                    <p className="text-base lg:text-lg">Nessuna transazione trovata</p>
-                    <p className="text-sm mt-2">
-                      {searchTerm || categoryFilter !== 'all' || typeFilter !== 'all' 
-                        ? 'Prova a modificare i filtri di ricerca'
-                        : 'Inizia aggiungendo la tua prima transazione'
-                      }
-                    </p>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {filteredTransactions.map((transaction) => (
-                      <div
-                        key={transaction.id}
-                        className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-200"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
-                            transaction.type === 'income' ? 'bg-success' : 'bg-expense'
-                          }`} />
-                          
-                          <div className="flex-1 min-w-0">
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 w-full overflow-hidden">
-                              <h3 className="font-semibold text-gray-900 dark:text-white truncate max-w-full">
-                                {transaction.description}
-                              </h3>
-                              <div className={`font-bold text-base flex-shrink-0 ${
-                                transaction.type === 'income' ? 'text-success' : 'text-expense'
-                              }`}>
-                                {transaction.type === 'income' ? '+' : '-'}
-                                {formatCurrency(transaction.amount)}
-                              </div>
-                            </div>
-                            
-                            <div className="flex flex-wrap items-center text-xs lg:text-sm text-gray-500 dark:text-gray-400 mt-1 gap-1 overflow-hidden">
-                              <span>{transaction.category}</span>
-                              <span className="hidden sm:inline">•</span>
-                              <span>{formatDate(transaction.date)}</span>
-                              {transaction.note && (
-                                <>
-                                  <span className="hidden sm:inline">•</span>
-                                  <span className="italic text-blue-600">📝 Nota presente</span>
-                                </>
-                              )}
-                            </div>
+        {/* Transactions List */}
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              Transazioni ({filteredTransactions.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {filteredTransactions.length === 0 ? (
+              <div className="text-center py-12 text-gray-500 dark:text-gray-400 px-4">
+                <span className="text-6xl mb-4 block">💳</span>
+                <p className="text-lg">Nessuna transazione trovata</p>
+                <p className="text-sm mt-2">
+                  {searchTerm || categoryFilter !== 'all' || typeFilter !== 'all' 
+                    ? 'Prova a modificare i filtri di ricerca'
+                    : 'Inizia aggiungendo la tua prima transazione'
+                  }
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                {filteredTransactions.map((transaction) => (
+                  <div
+                    key={transaction.id}
+                    className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-200"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                        transaction.type === 'income' ? 'bg-success' : 'bg-expense'
+                      }`} />
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                          <h3 className="font-semibold text-gray-900 dark:text-white truncate">
+                            {transaction.description}
+                          </h3>
+                          <div className={`font-bold text-base flex-shrink-0 ${
+                            transaction.type === 'income' ? 'text-success' : 'text-expense'
+                          }`}>
+                            {transaction.type === 'income' ? '+' : '-'}
+                            {formatCurrency(transaction.amount)}
                           </div>
-                          
-                          <div className="flex items-center gap-1 flex-shrink-0">
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  className="hover:bg-finance-blue/10 p-2"
-                                  onClick={() => handleEditTransaction(transaction)}
-                                >
-                                  <Edit className="w-3 h-3 lg:w-4 lg:h-4" />
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent className="max-w-[95vw] sm:max-w-md w-full overflow-hidden">
-                                <div className="space-y-4">
-                                  <h3 className="text-lg font-semibold">Modifica Transazione</h3>
-                                  <div className="space-y-3">
-                                    <div>
-                                      <label className="text-sm font-medium">Descrizione</label>
-                                      <Input value={transaction.description} readOnly className="bg-gray-50" />
-                                    </div>
-                                    <div>
-                                      <label className="text-sm font-medium">Importo</label>
-                                      <Input value={formatCurrency(transaction.amount)} readOnly className="bg-gray-50" />
-                                    </div>
-                                    <div>
-                                      <label className="text-sm font-medium">Aggiungi Nota</label>
-                                      <Textarea
-                                        placeholder="Aggiungi una nota a questa transazione..."
-                                        value={transactionNote}
-                                        onChange={(e) => setTransactionNote(e.target.value)}
-                                        rows={3}
-                                      />
-                                    </div>
-                                  </div>
-                                  <div className="flex gap-2">
-                                    <Button onClick={() => handleAddNote(transaction.id)} className="flex-1">
-                                      Salva Nota
-                                    </Button>
-                                    <Button variant="outline" onClick={() => setEditingTransaction(null)}>
-                                      Annulla
-                                    </Button>
-                                  </div>
-                                </div>
-                              </DialogContent>
-                            </Dialog>
-                            
+                        </div>
+                        
+                        <div className="flex flex-wrap items-center text-sm text-gray-500 dark:text-gray-400 mt-1 gap-1">
+                          <span>{transaction.category}</span>
+                          <span>•</span>
+                          <span>{formatDate(transaction.date)}</span>
+                          {transaction.note && (
+                            <>
+                              <span>•</span>
+                              <span className="italic text-blue-600">📝 Nota presente</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <Dialog>
+                          <DialogTrigger asChild>
                             <Button 
                               variant="ghost" 
                               size="sm" 
-                              className="hover:bg-red-50 hover:text-red-600 p-2"
-                              onClick={() => handleDeleteTransaction(transaction)}
+                              className="hover:bg-finance-blue/10 p-2"
+                              onClick={() => handleEditTransaction(transaction)}
                             >
-                              <Trash2 className="w-3 h-3 lg:w-4 lg:h-4" />
+                              <Edit className="w-4 h-4" />
                             </Button>
-                          </div>
-                        </div>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <div className="space-y-4">
+                              <h3 className="text-lg font-semibold">Modifica Transazione</h3>
+                              <div className="space-y-3">
+                                <div>
+                                  <label className="text-sm font-medium">Descrizione</label>
+                                  <Input value={transaction.description} readOnly className="bg-gray-50" />
+                                </div>
+                                <div>
+                                  <label className="text-sm font-medium">Importo</label>
+                                  <Input value={formatCurrency(transaction.amount)} readOnly className="bg-gray-50" />
+                                </div>
+                                <div>
+                                  <label className="text-sm font-medium">Aggiungi Nota</label>
+                                  <Textarea
+                                    placeholder="Aggiungi una nota a questa transazione..."
+                                    value={transactionNote}
+                                    onChange={(e) => setTransactionNote(e.target.value)}
+                                    rows={3}
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button onClick={() => handleAddNote(transaction.id)} className="flex-1">
+                                  Salva Nota
+                                </Button>
+                                <Button variant="outline" onClick={() => setEditingTransaction(null)}>
+                                  Annulla
+                                </Button>
+                              </div>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                        
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="hover:bg-red-50 hover:text-red-600 p-2"
+                          onClick={() => handleDeleteTransaction(transaction)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
-                    ))}
+                    </div>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </main>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
-
-      {/* Mobile Navigation */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-2 z-50">
-        <Navigation className="flex flex-row justify-around items-center space-y-0" />
-      </nav>
-    </div>
+    </Layout>
   );
 };
 
