@@ -259,20 +259,80 @@ const Investments = () => {
             </TabsContent>
 
             <TabsContent value="analytics" className="space-y-6 mt-6">
-              {isAnalyzing ? (
-                <div className="flex items-center justify-center py-8">
-                  <RefreshCw className="w-6 h-6 mr-2 animate-spin" />
-                  Analisi in corso...
-                </div>
-              ) : (
-                <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg">
-                  <CardContent>
-                    <p className="text-gray-900 dark:text-white whitespace-pre-wrap">
-                      {analysis || 'Nessuna analisi disponibile per il tuo portafoglio.'}
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
+              <Card className="bg-gradient-to-r from-blue-500/10 to-green-500/10 dark:from-blue-900/20 dark:to-green-900/20 backdrop-blur-sm border-0 shadow-lg">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-500/20 rounded-lg">
+                        <PieChart className="w-6 h-6 text-blue-600" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-xl text-gray-900 dark:text-white">
+                          Analisi Portafoglio AI
+                        </CardTitle>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                          Insights intelligenti sui tuoi investimenti
+                        </p>
+                      </div>
+                    </div>
+                    {investments.length > 0 && (
+                      <div className="text-right">
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          {investments.length} asset in portafoglio
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {investments.length === 0 ? (
+                    <div className="text-center py-12">
+                      <div className="space-y-4">
+                        <div className="mx-auto w-16 h-16 bg-gradient-to-r from-blue-500/20 to-green-500/20 rounded-full flex items-center justify-center">
+                          <Target className="w-8 h-8 text-blue-600" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                            Nessun investimento nel portafoglio
+                          </h3>
+                          <p className="text-gray-500 dark:text-gray-400 mt-1">
+                            Aggiungi alcuni investimenti per vedere l'analisi del portafoglio
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : isAnalyzing ? (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="text-center space-y-4">
+                        <div className="flex items-center justify-center space-x-2">
+                          <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce"></div>
+                          <div className="w-3 h-3 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                          <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                        </div>
+                        <p className="text-gray-600 dark:text-gray-400">
+                          Analisi del portafoglio in corso...
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="p-6 bg-white/50 dark:bg-gray-800/50 rounded-lg border border-white/20">
+                        <div className="prose prose-sm max-w-none dark:prose-invert">
+                          <div className="whitespace-pre-wrap leading-relaxed">
+                            {analysis || 'Nessuna analisi disponibile per il tuo portafoglio.'}
+                          </div>
+                        </div>
+                      </div>
+                      {analysis && (
+                        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                          <PieChart className="w-3 h-3" />
+                          <span>Analisi generata tramite intelligenza artificiale</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
         </main>

@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { TrendingUp, TrendingDown, Target, Lightbulb, Calendar, PieChart as PieChartIcon, Loader } from 'lucide-react';
+import { TrendingUp, TrendingDown, Target, Lightbulb, Calendar, PieChart as PieChartIcon, Loader, RefreshCw, Sparkles } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import Together from 'together-ai';
 import { BUILD_FORECAST_PROMPT } from '@/prompts/forecastPrompts';
@@ -32,6 +32,8 @@ const Analytics: React.FC = () => {
   const [feedback, setFeedback] = useState<Record<number, boolean>>({});
   const [startTime, setStartTime] = useState<number | null>(null);
   const [elapsedTime, setElapsedTime] = useState<number>(0);
+  const [isGeneratingForecast, setIsGeneratingForecast] = useState(false);
+  const [forecast, setForecast] = useState<string | null>(null);
 
   // Compute period bounds
   const { start, end } = useMemo(() => {
@@ -172,6 +174,35 @@ const Analytics: React.FC = () => {
     setFeedback(f => ({...f,[idx]:useful}));
     // salva o invia feedback
     console.log('Feedback', idx, useful);
+  }
+
+  const generateForecast = async () => {
+    setIsGeneratingForecast(true);
+    try {
+      const summaryStr = monthlyData.map(d => `${d.month}: entrate ${d.income}, uscite ${d.expenses}, risparmio ${d.savings}`).join('; ');
+      const prompt = BUILD_FORECAST_PROMPT(summaryStr);
+      const response = await together.chat.completions.create({
+        model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free',
+        messages: [
+          { role: 'user', content: prompt }
+        ]
+      });
+      const text = response.choices[0].message.content;
+      let jsonStr = text.trim();
+      const codeFenceRegex = /```(?:json)?\n([\s\S]*?)```/;
+      const match = codeFenceRegex.exec(jsonStr);
+      if (match) jsonStr = match[1].trim();
+      const data = JSON.parse(jsonStr);
+      // Validazione struttura
+      if (!data.predictions || !Array.isArray(data.predictions) || data.predictions.length !== 3) throw new Error('Formato non valido');
+      data.predictions.forEach((p:any) => { if (typeof p.title !== 'string' || typeof p.content !== 'string') throw new Error('Tipo errato'); });
+      const forecast = data.predictions;
+      setForecast(forecast);
+    } catch (err) {
+      console.error('Error generating forecast:', err);
+    } finally {
+      setIsGeneratingForecast(false);
+    }
   }
 
   return (
@@ -506,6 +537,88 @@ const Analytics: React.FC = () => {
                 </Card>
               </TabsContent>
             </Tabs>
+
+            {/* Sezione Previsioni Migliorata */}
+            <Card className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 dark:from-purple-900/20 dark:to-blue-900/20 backdrop-blur-sm border-0 shadow-lg">
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-purple-500/20 rounded-lg">
+                      <Brain className="w-6 h-6 text-purple-600" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-xl text-gray-900 dark:text-white">
+                        Previsioni Intelligenti
+                      </CardTitle>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        Analisi predittiva basata sui tuoi dati finanziari
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={generateForecast}
+                    disabled={isGeneratingForecast}
+                    className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white shadow-lg transition-all duration-200"
+                  >
+                    {isGeneratingForecast ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        Generazione...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        Genera Previsioni
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {isGeneratingForecast ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="text-center space-y-4">
+                      <div className="flex items-center justify-center space-x-2">
+                        <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce"></div>
+                        <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                        <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                      </div>
+                      <p className="text-gray-600 dark:text-gray-400">
+                        L'intelligenza artificiale sta analizzando i tuoi dati...
+                      </p>
+                    </div>
+                  </div>
+                ) : forecast ? (
+                  <div className="space-y-4">
+                    <div className="p-6 bg-white/50 dark:bg-gray-800/50 rounded-lg border border-white/20">
+                      <div className="prose prose-sm max-w-none dark:prose-invert">
+                        <div className="whitespace-pre-wrap leading-relaxed">{forecast}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                      <Brain className="w-3 h-3" />
+                      <span>Previsioni generate tramite intelligenza artificiale</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="space-y-4">
+                      <div className="mx-auto w-16 h-16 bg-gradient-to-r from-purple-500/20 to-blue-500/20 rounded-full flex items-center justify-center">
+                        <Brain className="w-8 h-8 text-purple-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                          Previsioni non ancora generate
+                        </h3>
+                        <p className="text-gray-500 dark:text-gray-400 mt-1">
+                          Clicca il pulsante per generare previsioni intelligenti sui tuoi dati finanziari
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </main>
       </div>

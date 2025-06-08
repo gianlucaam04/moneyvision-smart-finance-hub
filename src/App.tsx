@@ -1,85 +1,89 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/contexts/AuthContext";
-import { FinanceProvider } from "@/contexts/FinanceContext";
-import PrivateRoute from "@/components/Auth/PrivateRoute";
-import OnboardingDialog from "@/components/Auth/OnboardingDialog";
-import Index from "./pages/Index";
-import Dashboard from "./pages/Dashboard";
-import Transactions from "./pages/Transactions";
-import Categories from "./pages/Categories";
-import Goals from "./pages/Goals";
-import Investments from "./pages/Investments";
-import Analytics from "./pages/Analytics";
-import Settings from "./pages/Settings";
-import NotFound from "./pages/NotFound";
-import ResetPassword from "./pages/ResetPassword";
-import Profile from "./pages/Profile";
+import React from 'react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
+import { FinanceProvider } from './contexts/FinanceContext';
+import Index from './pages/Index';
+import Dashboard from './pages/Dashboard';
+import Transactions from './pages/Transactions';
+import Categories from './pages/Categories';
+import Analytics from './pages/Analytics';
+import Goals from './pages/Goals';
+import Investments from './pages/Investments';
+import Profile from './pages/Profile';
+import Settings from './pages/Settings';
+import Testing from './pages/Testing';
+import NotFound from './pages/NotFound';
+import PrivateRoute from './components/PrivateRoute';
+import ResetPassword from './pages/ResetPassword';
+import { Toaster } from 'sonner';
 
-const queryClient = new QueryClient();
+import HistoricalData from './pages/HistoricalData';
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
+const App = () => {
+  return (
+    <Router>
       <AuthProvider>
         <FinanceProvider>
           <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/dashboard" element={
-                <PrivateRoute>
-                  <Dashboard />
-                </PrivateRoute>
-              } />
-              <Route path="/transactions" element={
-                <PrivateRoute>
-                  <Transactions />
-                </PrivateRoute>
-              } />
-              <Route path="/categories" element={
-                <PrivateRoute>
-                  <Categories />
-                </PrivateRoute>
-              } />
-              <Route path="/goals" element={
-                <PrivateRoute>
-                  <Goals />
-                </PrivateRoute>
-              } />
-              <Route path="/investments" element={
-                <PrivateRoute>
-                  <Investments />
-                </PrivateRoute>
-              } />
-              <Route path="/analytics" element={
-                <PrivateRoute>
-                  <Analytics />
-                </PrivateRoute>
-              } />
-              <Route path="/settings" element={
-                <PrivateRoute>
-                  <Settings />
-                </PrivateRoute>
-              } />
-              <Route path="/profile" element={
-                <PrivateRoute>
-                  <Profile />
-                </PrivateRoute>
-              } />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-            <OnboardingDialog />
-          </BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/dashboard" element={
+              <PrivateRoute>
+                <Dashboard />
+              </PrivateRoute>
+            } />
+            <Route path="/transactions" element={
+              <PrivateRoute>
+                <Transactions />
+              </PrivateRoute>
+            } />
+            <Route path="/categories" element={
+              <PrivateRoute>
+                <Categories />
+              </PrivateRoute>
+            } />
+            <Route path="/analytics" element={
+              <PrivateRoute>
+                <Analytics />
+              </PrivateRoute>
+            } />
+            <Route path="/goals" element={
+              <PrivateRoute>
+                <Goals />
+              </PrivateRoute>
+            } />
+            <Route path="/investments" element={
+              <PrivateRoute>
+                <Investments />
+              </PrivateRoute>
+            } />
+            <Route path="/historical" element={
+              <PrivateRoute>
+                <HistoricalData />
+              </PrivateRoute>
+            } />
+            <Route path="/profile" element={
+              <PrivateRoute>
+                <Profile />
+              </PrivateRoute>
+            } />
+            <Route path="/settings" element={
+              <PrivateRoute>
+                <Settings />
+              </PrivateRoute>
+            } />
+            <Route path="/testing" element={
+              <PrivateRoute>
+                <Testing />
+              </PrivateRoute>
+            } />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
         </FinanceProvider>
       </AuthProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+    </Router>
+  );
+};
 
 export default App;
