@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { Transaction, Category, SavingsGoal } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
@@ -8,7 +9,15 @@ interface FinanceContextType {
   transactions: Transaction[];
   categories: Category[];
   goals: SavingsGoal[];
-  addTransaction: (transaction: Omit<Transaction, 'id'>) => void;
+  summary: {
+    totalIncome: number;
+    totalExpenses: number;
+    balance: number;
+    monthlyTrend: 'up' | 'down' | 'stable';
+    budgetUsage: number;
+  };
+  savingsGoals: SavingsGoal[];
+  addTransaction: (transaction: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateTransaction: (id: string, updates: Partial<Transaction>) => void;
   deleteTransaction: (id: string) => void;
   addCategory: (category: Omit<Category, 'id'>) => void;
@@ -42,6 +51,47 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [user]);
 
+  const transformTransactionData = (data: any[]): Transaction[] => {
+    return data.map(item => ({
+      id: item.id,
+      amount: item.amount,
+      description: item.description,
+      category: item.category,
+      type: item.type as 'income' | 'expense',
+      date: item.date,
+      note: item.note || '',
+      createdAt: item.created_at,
+      updatedAt: item.updated_at,
+      userId: item.user_id
+    }));
+  };
+
+  const transformCategoryData = (data: any[]): Category[] => {
+    return data.map(item => ({
+      id: item.id,
+      name: item.name,
+      color: item.color,
+      icon: item.icon,
+      type: item.type as 'income' | 'expense' | 'both',
+      budget: item.budget || 0,
+      userId: item.user_id
+    }));
+  };
+
+  const transformGoalsData = (data: any[]): SavingsGoal[] => {
+    return data.map(item => ({
+      id: item.id,
+      title: item.title,
+      description: item.description || '',
+      targetAmount: item.target_amount,
+      currentAmount: item.current_amount,
+      deadline: item.deadline,
+      color: item.color,
+      isCompleted: item.is_completed,
+      userId: item.user_id
+    }));
+  };
+
   const fetchInitialData = async () => {
     if (!user) return;
 
@@ -73,26 +123,72 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       if (goalsError) throw goalsError;
 
-      setTransactions(transactionsData || []);
-      setCategories(categoriesData || []);
-      setGoals(goalsData || []);
+      setTransactions(transformTransactionData(transactionsData || []));
+      setCategories(transformCategoryData(categoriesData || []));
+      setGoals(transformGoalsData(goalsData || []));
 
     } catch (error) {
       console.error("Failed to fetch initial data:", error);
     }
   };
 
-  const addTransaction = async (transaction: Omit<Transaction, 'id'>) => {
+  const calculateSummary = () => {
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    
+    const monthlyTransactions = transactions.filter(t => {
+      const transactionDate = new Date(t.date);
+      return transactionDate.getMonth() === currentMonth && transactionDate.getFullYear() === currentYear;
+    });
+
+    const totalIncome = monthlyTransactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const totalExpenses = monthlyTransactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const balance = totalIncome - totalExpenses;
+    const budgetUsage = totalExpenses > 0 ? (totalExpenses / (totalIncome || 1)) * 100 : 0;
+
+    return {
+      totalIncome,
+      totalExpenses,
+      balance,
+      monthlyTrend: balance > 0 ? 'up' : balance < 0 ? 'down' : 'stable' as const,
+      budgetUsage
+    };
+  };
+
+  const addTransaction = async (transaction: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!user) return;
 
-    const newTransaction = { ...transaction, user_id: user.id, id: uuidv4() };
+    const dbTransaction = {
+      amount: transaction.amount,
+      description: transaction.description,
+      category: transaction.category,
+      type: transaction.type,
+      date: transaction.date,
+      note: transaction.note || '',
+      user_id: user.id,
+      id: uuidv4()
+    };
 
     try {
       const { error } = await supabase
         .from('transactions')
-        .insert([newTransaction]);
+        .insert([dbTransaction]);
 
       if (error) throw error;
+
+      const newTransaction: Transaction = {
+        ...transaction,
+        id: dbTransaction.id,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        userId: user.id
+      };
 
       setTransactions(prevTransactions => [newTransaction, ...prevTransactions]);
     } catch (error) {
@@ -102,9 +198,18 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const updateTransaction = async (id: string, updates: Partial<Transaction>) => {
     try {
+      const dbUpdates: any = {};
+      if (updates.amount !== undefined) dbUpdates.amount = updates.amount;
+      if (updates.description !== undefined) dbUpdates.description = updates.description;
+      if (updates.category !== undefined) dbUpdates.category = updates.category;
+      if (updates.type !== undefined) dbUpdates.type = updates.type;
+      if (updates.date !== undefined) dbUpdates.date = updates.date;
+      if (updates.note !== undefined) dbUpdates.note = updates.note;
+      dbUpdates.updated_at = new Date().toISOString();
+
       const { error } = await supabase
         .from('transactions')
-        .update(updates)
+        .update(dbUpdates)
         .eq('id', id)
         .eq('user_id', user?.id);
 
@@ -112,7 +217,11 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       setTransactions(prevTransactions =>
         prevTransactions.map(transaction =>
-          transaction.id === id ? { ...transaction, ...updates } : transaction
+          transaction.id === id ? { 
+            ...transaction, 
+            ...updates,
+            updatedAt: dbUpdates.updated_at
+          } : transaction
         )
       );
     } catch (error) {
@@ -141,14 +250,28 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const addCategory = async (category: Omit<Category, 'id'>) => {
     if (!user) return;
 
-    const newCategory = { ...category, user_id: user.id, id: uuidv4() };
+    const dbCategory = {
+      name: category.name,
+      color: category.color,
+      icon: category.icon,
+      type: category.type,
+      budget: category.budget || null,
+      user_id: user.id,
+      id: uuidv4()
+    };
 
     try {
       const { error } = await supabase
         .from('categories')
-        .insert([newCategory]);
+        .insert([dbCategory]);
 
       if (error) throw error;
+
+      const newCategory: Category = {
+        ...category,
+        id: dbCategory.id,
+        userId: user.id
+      };
 
       setCategories(prevCategories => [...prevCategories, newCategory]);
     } catch (error) {
@@ -158,9 +281,17 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const updateCategory = async (id: string, updates: Partial<Category>) => {
     try {
+      const dbUpdates: any = {};
+      if (updates.name !== undefined) dbUpdates.name = updates.name;
+      if (updates.color !== undefined) dbUpdates.color = updates.color;
+      if (updates.icon !== undefined) dbUpdates.icon = updates.icon;
+      if (updates.type !== undefined) dbUpdates.type = updates.type;
+      if (updates.budget !== undefined) dbUpdates.budget = updates.budget;
+      dbUpdates.updated_at = new Date().toISOString();
+
       const { error } = await supabase
         .from('categories')
-        .update(updates)
+        .update(dbUpdates)
         .eq('id', id)
         .eq('user_id', user?.id);
 
@@ -197,14 +328,30 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const addGoal = async (goal: Omit<SavingsGoal, 'id'>) => {
     if (!user) return;
 
-    const newGoal = { ...goal, user_id: user.id, id: uuidv4() };
+    const dbGoal = {
+      title: goal.title,
+      description: goal.description || '',
+      target_amount: goal.targetAmount,
+      current_amount: goal.currentAmount,
+      deadline: goal.deadline,
+      color: goal.color,
+      is_completed: goal.isCompleted,
+      user_id: user.id,
+      id: uuidv4()
+    };
 
     try {
       const { error } = await supabase
         .from('savings_goals')
-        .insert([newGoal]);
+        .insert([dbGoal]);
 
       if (error) throw error;
+
+      const newGoal: SavingsGoal = {
+        ...goal,
+        id: dbGoal.id,
+        userId: user.id
+      };
 
       setGoals(prevGoals => [...prevGoals, newGoal]);
     } catch (error) {
@@ -214,9 +361,19 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const updateGoal = async (id: string, updates: Partial<SavingsGoal>) => {
     try {
+      const dbUpdates: any = {};
+      if (updates.title !== undefined) dbUpdates.title = updates.title;
+      if (updates.description !== undefined) dbUpdates.description = updates.description;
+      if (updates.targetAmount !== undefined) dbUpdates.target_amount = updates.targetAmount;
+      if (updates.currentAmount !== undefined) dbUpdates.current_amount = updates.currentAmount;
+      if (updates.deadline !== undefined) dbUpdates.deadline = updates.deadline;
+      if (updates.color !== undefined) dbUpdates.color = updates.color;
+      if (updates.isCompleted !== undefined) dbUpdates.is_completed = updates.isCompleted;
+      dbUpdates.updated_at = new Date().toISOString();
+
       const { error } = await supabase
         .from('savings_goals')
-        .update(updates)
+        .update(dbUpdates)
         .eq('id', id)
         .eq('user_id', user?.id);
 
@@ -282,9 +439,9 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (goalsError) throw goalsError;
 
       // Aggiorna gli stati
-      setTransactions(transactionsData || []);
-      setCategories(categoriesData || []);
-      setGoals(goalsData || []);
+      setTransactions(transformTransactionData(transactionsData || []));
+      setCategories(transformCategoryData(categoriesData || []));
+      setGoals(transformGoalsData(goalsData || []));
 
       console.log('Dati ricaricati con successo');
     } catch (error) {
@@ -292,10 +449,14 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  const summary = calculateSummary();
+
   const value = {
     transactions,
     categories,
     goals,
+    summary,
+    savingsGoals: goals, // Alias for compatibility
     addTransaction,
     updateTransaction,
     deleteTransaction,
@@ -305,7 +466,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     addGoal,
     updateGoal,
     deleteGoal,
-    refreshData // Aggiungo il nuovo metodo
+    refreshData
   };
 
   return (
