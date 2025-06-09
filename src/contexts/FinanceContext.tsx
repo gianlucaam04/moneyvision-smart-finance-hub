@@ -1,569 +1,311 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Transaction, Category, SavingsGoal, FinancialSummary } from '@/types';
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import { Transaction, Category, SavingsGoal } from '@/types';
+import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { toast } from '@/hooks/use-toast';
+import { useAuth } from './AuthContext';
 
 interface FinanceContextType {
   transactions: Transaction[];
   categories: Category[];
-  savingsGoals: SavingsGoal[];
-  summary: FinancialSummary;
-  addTransaction: (transaction: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  updateTransaction: (id: string, transaction: Partial<Transaction>) => void;
+  goals: SavingsGoal[];
+  addTransaction: (transaction: Omit<Transaction, 'id'>) => void;
+  updateTransaction: (id: string, updates: Partial<Transaction>) => void;
   deleteTransaction: (id: string) => void;
   addCategory: (category: Omit<Category, 'id'>) => void;
   updateCategory: (id: string, updates: Partial<Category>) => void;
   deleteCategory: (id: string) => void;
-  addSavingsGoal: (goal: Omit<SavingsGoal, 'id'>) => void;
-  editSavingsGoal: (goal: SavingsGoal) => void;
-  updateSavingsGoal: (id: string, amount: number) => void;
-  deleteSavingsGoal: (id: string) => void;
-  refreshSummary: () => void;
-  isLoading: boolean;
+  addGoal: (goal: Omit<SavingsGoal, 'id'>) => void;
+  updateGoal: (id: string, updates: Partial<SavingsGoal>) => void;
+  deleteGoal: (id: string) => void;
+  refreshData: () => Promise<void>;
 }
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
 
-export const useFinance = () => {
+export const useFinance = (): FinanceContextType => {
   const context = useContext(FinanceContext);
-  if (context === undefined) {
-    throw new Error('useFinance must be used within a FinanceProvider');
+  if (!context) {
+    throw new Error("useFinance must be used within a FinanceProvider");
   }
   return context;
 };
 
-// Default categories for new users
-const defaultCategories: Omit<Category, 'id'>[] = [
-  { name: 'Stipendio', color: '#10B981', icon: 'circle-dollar-sign', type: 'income' },
-  { name: 'Alimentari', color: '#F59E0B', icon: 'circle-minus', type: 'expense', budget: 400 },
-  { name: 'Trasporti', color: '#EF4444', icon: 'circle-minus', type: 'expense', budget: 200 },
-  { name: 'Intrattenimento', color: '#8B5CF6', icon: 'circle-minus', type: 'expense', budget: 150 },
-];
-
-// Mapping functions to convert database types to interface types
-const mapDbCategory = (dbCategory: any): Category => ({
-  id: dbCategory.id,
-  name: dbCategory.name,
-  color: dbCategory.color,
-  icon: dbCategory.icon,
-  type: dbCategory.type as 'income' | 'expense' | 'both',
-  budget: dbCategory.budget || undefined
-});
-
-const mapDbTransaction = (dbTransaction: any): Transaction => ({
-  id: dbTransaction.id,
-  amount: Number(dbTransaction.amount),
-  description: dbTransaction.description,
-  category: dbTransaction.category,
-  type: dbTransaction.type as 'income' | 'expense',
-  date: dbTransaction.date,
-  note: dbTransaction.note || undefined,
-  createdAt: dbTransaction.created_at,
-  updatedAt: dbTransaction.updated_at
-});
-
-const mapDbSavingsGoal = (dbGoal: any): SavingsGoal => ({
-  id: dbGoal.id,
-  title: dbGoal.title,
-  targetAmount: Number(dbGoal.target_amount),
-  currentAmount: Number(dbGoal.current_amount),
-  deadline: dbGoal.deadline || undefined,
-  color: dbGoal.color,
-  description: dbGoal.description || undefined,
-  isCompleted: dbGoal.is_completed
-});
-
 export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, isAuthenticated } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [summary, setSummary] = useState<FinancialSummary>({
-    totalIncome: 0,
-    totalExpenses: 0,
-    balance: 0,
-    monthlyTrend: 'stable',
-    budgetUsage: 0
-  });
+  const [goals, setGoals] = useState<SavingsGoal[]>([]);
+  const { user } = useAuth();
 
-  // Load data from Supabase when user is authenticated
   useEffect(() => {
-    if (isAuthenticated && user) {
-      loadUserData();
-    } else {
-      // Clear data when user logs out
-      setTransactions([]);
-      setCategories([]);
-      setSavingsGoals([]);
+    if (user) {
+      fetchInitialData();
     }
-  }, [isAuthenticated, user]);
+  }, [user]);
 
-  const loadUserData = async () => {
+  const fetchInitialData = async () => {
     if (!user) return;
-    
-    setIsLoading(true);
-    
+
     try {
-      // Load categories
-      const { data: categoriesData, error: categoriesError } = await supabase
-        .from('categories')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: true });
-
-      if (categoriesError) {
-        console.error('Error loading categories:', categoriesError);
-      } else {
-        // If no categories exist, create default ones
-        if (categoriesData.length === 0) {
-          await createDefaultCategories();
-        } else {
-          setCategories(categoriesData.map(mapDbCategory));
-        }
-      }
-
-      // Load transactions
+      // Fetch transactions
       const { data: transactionsData, error: transactionsError } = await supabase
         .from('transactions')
         .select('*')
         .eq('user_id', user.id)
         .order('date', { ascending: false });
 
-      if (transactionsError) {
-        console.error('Error loading transactions:', transactionsError);
-      } else {
-        setTransactions((transactionsData || []).map(mapDbTransaction));
-      }
+      if (transactionsError) throw transactionsError;
 
-      // Load savings goals
+      // Fetch categories
+      const { data: categoriesData, error: categoriesError } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('name');
+
+      if (categoriesError) throw categoriesError;
+
+      // Fetch savings goals
       const { data: goalsData, error: goalsError } = await supabase
         .from('savings_goals')
         .select('*')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: false });
 
-      if (goalsError) {
-        console.error('Error loading goals:', goalsError);
-      } else {
-        setSavingsGoals((goalsData || []).map(mapDbSavingsGoal));
-      }
+      if (goalsError) throw goalsError;
+
+      setTransactions(transactionsData || []);
+      setCategories(categoriesData || []);
+      setGoals(goalsData || []);
+
     } catch (error) {
-      console.error('Error loading user data:', error);
-      toast({
-        title: "Errore",
-        description: "Impossibile caricare i dati",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
+      console.error("Failed to fetch initial data:", error);
     }
   };
 
-  const createDefaultCategories = async () => {
+  const addTransaction = async (transaction: Omit<Transaction, 'id'>) => {
     if (!user) return;
 
-    try {
-      const categoriesToInsert = defaultCategories.map(cat => ({
-        ...cat,
-        user_id: user.id
-      }));
-
-      const { data, error } = await supabase
-        .from('categories')
-        .insert(categoriesToInsert)
-        .select();
-
-      if (error) {
-        console.error('Error creating default categories:', error);
-      } else {
-        setCategories((data || []).map(mapDbCategory));
-      }
-    } catch (error) {
-      console.error('Error creating default categories:', error);
-    }
-  };
-
-  const calculateSummary = () => {
-    const currentMonth = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
-    
-    const monthlyTransactions = transactions.filter(t => {
-      const transactionDate = new Date(t.date);
-      return transactionDate.getMonth() === currentMonth && 
-             transactionDate.getFullYear() === currentYear;
-    });
-
-    const totalIncome = monthlyTransactions
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + Number(t.amount), 0);
-    
-    const totalExpenses = Math.abs(monthlyTransactions
-      .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + Number(t.amount), 0));
-
-    const balance = totalIncome - totalExpenses;
-    
-    const totalBudget = categories
-      .filter(c => c.budget)
-      .reduce((sum, c) => sum + Number(c.budget || 0), 0);
-    
-    const budgetUsage = totalBudget > 0 ? (totalExpenses / totalBudget) * 100 : 0;
-
-    setSummary({
-      totalIncome,
-      totalExpenses,
-      balance,
-      monthlyTrend: balance > 0 ? 'up' : balance < 0 ? 'down' : 'stable',
-      budgetUsage
-    });
-  };
-
-  useEffect(() => {
-    calculateSummary();
-  }, [transactions, categories]);
-
-  const addTransaction = async (transactionData: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>) => {
-    if (!user) return;
+    const newTransaction = { ...transaction, user_id: user.id, id: uuidv4() };
 
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('transactions')
-        .insert({
-          ...transactionData,
-          user_id: user.id
-        })
-        .select()
-        .single();
+        .insert([newTransaction]);
 
-      if (error) {
-        console.error('Error adding transaction:', error);
-        toast({
-          title: "Errore",
-          description: "Impossibile aggiungere la transazione",
-          variant: "destructive",
-        });
-        return;
-      }
+      if (error) throw error;
 
-      setTransactions(prev => [mapDbTransaction(data), ...prev]);
-      toast({
-        title: "Successo",
-        description: "Transazione aggiunta con successo",
-      });
+      setTransactions(prevTransactions => [newTransaction, ...prevTransactions]);
     } catch (error) {
-      console.error('Error adding transaction:', error);
+      console.error("Failed to add transaction:", error);
     }
   };
 
   const updateTransaction = async (id: string, updates: Partial<Transaction>) => {
-    if (!user) return;
-
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('transactions')
         .update(updates)
         .eq('id', id)
-        .eq('user_id', user.id)
-        .select()
-        .single();
+        .eq('user_id', user?.id);
 
-      if (error) {
-        console.error('Error updating transaction:', error);
-        toast({
-          title: "Errore",
-          description: "Impossibile aggiornare la transazione",
-          variant: "destructive",
-        });
-        return;
-      }
+      if (error) throw error;
 
-      setTransactions(prev => prev.map(t => t.id === id ? mapDbTransaction(data) : t));
-      toast({
-        title: "Successo",
-        description: "Transazione aggiornata con successo",
-      });
+      setTransactions(prevTransactions =>
+        prevTransactions.map(transaction =>
+          transaction.id === id ? { ...transaction, ...updates } : transaction
+        )
+      );
     } catch (error) {
-      console.error('Error updating transaction:', error);
+      console.error("Failed to update transaction:", error);
     }
   };
 
   const deleteTransaction = async (id: string) => {
-    if (!user) return;
-
     try {
       const { error } = await supabase
         .from('transactions')
         .delete()
         .eq('id', id)
-        .eq('user_id', user.id);
+        .eq('user_id', user?.id);
 
-      if (error) {
-        console.error('Error deleting transaction:', error);
-        toast({
-          title: "Errore",
-          description: "Impossibile eliminare la transazione",
-          variant: "destructive",
-        });
-        return;
-      }
+      if (error) throw error;
 
-      setTransactions(prev => prev.filter(t => t.id !== id));
-      toast({
-        title: "Successo",
-        description: "Transazione eliminata con successo",
-      });
+      setTransactions(prevTransactions =>
+        prevTransactions.filter(transaction => transaction.id !== id)
+      );
     } catch (error) {
-      console.error('Error deleting transaction:', error);
+      console.error("Failed to delete transaction:", error);
     }
   };
 
-  const addCategory = async (categoryData: Omit<Category, 'id'>) => {
+  const addCategory = async (category: Omit<Category, 'id'>) => {
     if (!user) return;
 
+    const newCategory = { ...category, user_id: user.id, id: uuidv4() };
+
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('categories')
-        .insert({
-          ...categoryData,
-          user_id: user.id
-        })
-        .select()
-        .single();
+        .insert([newCategory]);
 
-      if (error) {
-        console.error('Error adding category:', error);
-        toast({
-          title: "Errore",
-          description: "Impossibile aggiungere la categoria",
-          variant: "destructive",
-        });
-        return;
-      }
+      if (error) throw error;
 
-      setCategories(prev => [...prev, mapDbCategory(data)]);
-      toast({
-        title: "Successo",
-        description: "Categoria aggiunta con successo",
-      });
+      setCategories(prevCategories => [...prevCategories, newCategory]);
     } catch (error) {
-      console.error('Error adding category:', error);
+      console.error("Failed to add category:", error);
     }
   };
 
   const updateCategory = async (id: string, updates: Partial<Category>) => {
-    if (!user) return;
-
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('categories')
         .update(updates)
         .eq('id', id)
-        .eq('user_id', user.id)
-        .select()
-        .single();
+        .eq('user_id', user?.id);
 
-      if (error) {
-        console.error('Error updating category:', error);
-        toast({
-          title: "Errore",
-          description: "Impossibile aggiornare la categoria",
-          variant: "destructive",
-        });
-        return;
-      }
+      if (error) throw error;
 
-      setCategories(prev => prev.map(c => c.id === id ? mapDbCategory(data) : c));
-      toast({
-        title: "Successo",
-        description: "Categoria aggiornata con successo",
-      });
+      setCategories(prevCategories =>
+        prevCategories.map(category =>
+          category.id === id ? { ...category, ...updates } : category
+        )
+      );
     } catch (error) {
-      console.error('Error updating category:', error);
+      console.error("Failed to update category:", error);
     }
   };
 
   const deleteCategory = async (id: string) => {
-    if (!user) return;
-
     try {
       const { error } = await supabase
         .from('categories')
         .delete()
         .eq('id', id)
-        .eq('user_id', user.id);
-
-      if (error) {
-        console.error('Error deleting category:', error);
-        toast({
-          title: "Errore",
-          description: "Impossibile eliminare la categoria",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      setCategories(prev => prev.filter(c => c.id !== id));
-      toast({
-        title: "Successo",
-        description: "Categoria eliminata con successo",
-      });
-    } catch (error) {
-      console.error('Error deleting category:', error);
-    }
-  };
-
-  const addSavingsGoal = async (goalData: Omit<SavingsGoal, 'id'>) => {
-    if (!user) return;
-
-    try {
-      const dbGoalData = {
-        title: goalData.title,
-        target_amount: goalData.targetAmount,
-        current_amount: goalData.currentAmount || 0,
-        deadline: goalData.deadline || null,
-        color: goalData.color,
-        description: goalData.description || null,
-        is_completed: goalData.isCompleted || false,
-        user_id: user.id
-      };
-
-      const { data, error } = await supabase
-        .from('savings_goals')
-        .insert(dbGoalData)
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error adding goal:', error);
-        toast({
-          title: "Errore",
-          description: "Impossibile aggiungere l'obiettivo",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      setSavingsGoals(prev => [...prev, mapDbSavingsGoal(data)]);
-      toast({
-        title: "Successo",
-        description: "Obiettivo aggiunto con successo",
-      });
-    } catch (error) {
-      console.error('Error adding goal:', error);
-    }
-  };
-
-  const editSavingsGoal = async (goalData: SavingsGoal) => {
-    if (!user) return;
-
-    try {
-      const updatePayload = {
-        title: goalData.title,
-        target_amount: goalData.targetAmount,
-        deadline: goalData.deadline || null,
-        description: goalData.description || null,
-        color: goalData.color,
-        is_completed: goalData.currentAmount >= goalData.targetAmount
-      };
-
-      const { data, error } = await supabase
-        .from('savings_goals')
-        .update(updatePayload)
-        .eq('id', goalData.id)
-        .eq('user_id', user.id)
-        .select()
-        .single();
+        .eq('user_id', user?.id);
 
       if (error) throw error;
 
-      setSavingsGoals(prev => prev.map(g => g.id === data.id ? mapDbSavingsGoal(data) : g));
-      toast({ title: 'Successo', description: `Obiettivo "${goalData.title}" aggiornato con successo` });
+      setCategories(prevCategories =>
+        prevCategories.filter(category => category.id !== id)
+      );
     } catch (error) {
-      console.error('Error editing goal:', error);
-      toast({ title: 'Errore', description: 'Impossibile aggiornare l\'obiettivo', variant: 'destructive' });
+      console.error("Failed to delete category:", error);
     }
   };
 
-  const updateSavingsGoal = async (id: string, amount: number) => {
+  const addGoal = async (goal: Omit<SavingsGoal, 'id'>) => {
     if (!user) return;
 
-    const goal = savingsGoals.find(g => g.id === id);
-    if (!goal) return;
-
-    const newAmount = Math.min(amount, Number(goal.targetAmount));
-    const isCompleted = newAmount >= Number(goal.targetAmount);
+    const newGoal = { ...goal, user_id: user.id, id: uuidv4() };
 
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('savings_goals')
-        .update({ 
-          current_amount: newAmount,
-          is_completed: isCompleted
-        })
-        .eq('id', id)
-        .eq('user_id', user.id)
-        .select()
-        .single();
+        .insert([newGoal]);
 
-      if (error) {
-        console.error('Error updating goal:', error);
-        toast({
-          title: "Errore",
-          description: "Impossibile aggiornare l'obiettivo",
-          variant: "destructive",
-        });
-        return;
-      }
+      if (error) throw error;
 
-      setSavingsGoals(prev => prev.map(g => g.id === id ? mapDbSavingsGoal(data) : g));
-      toast({
-        title: "Successo",
-        description: "Obiettivo aggiornato con successo",
-      });
+      setGoals(prevGoals => [...prevGoals, newGoal]);
     } catch (error) {
-      console.error('Error updating goal:', error);
+      console.error("Failed to add goal:", error);
     }
   };
 
-  const deleteSavingsGoal = async (id: string) => {
-    if (!user) return;
+  const updateGoal = async (id: string, updates: Partial<SavingsGoal>) => {
+    try {
+      const { error } = await supabase
+        .from('savings_goals')
+        .update(updates)
+        .eq('id', id)
+        .eq('user_id', user?.id);
 
+      if (error) throw error;
+
+      setGoals(prevGoals =>
+        prevGoals.map(goal =>
+          goal.id === id ? { ...goal, ...updates } : goal
+        )
+      );
+    } catch (error) {
+      console.error("Failed to update goal:", error);
+    }
+  };
+
+  const deleteGoal = async (id: string) => {
     try {
       const { error } = await supabase
         .from('savings_goals')
         .delete()
         .eq('id', id)
-        .eq('user_id', user.id);
+        .eq('user_id', user?.id);
 
       if (error) throw error;
 
-      setSavingsGoals(prev => prev.filter(g => g.id !== id));
-      toast({ title: 'Successo', description: 'Obiettivo eliminato con successo' });
+      setGoals(prevGoals =>
+        prevGoals.filter(goal => goal.id !== id)
+      );
     } catch (error) {
-      console.error('Error deleting goal:', error);
-      toast({ title: 'Errore', description: 'Impossibile eliminare l\'obiettivo', variant: 'destructive' });
+      console.error("Failed to delete goal:", error);
+    }
+  };
+
+  const refreshData = async () => {
+    if (!user) return;
+    
+    try {
+      // Ricarica transazioni
+      const { data: transactionsData, error: transactionsError } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('date', { ascending: false });
+
+      if (transactionsError) throw transactionsError;
+
+      // Ricarica categorie
+      const { data: categoriesData, error: categoriesError } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('name');
+
+      if (categoriesError) throw categoriesError;
+
+      // Ricarica obiettivi
+      const { data: goalsData, error: goalsError } = await supabase
+        .from('savings_goals')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (goalsError) throw goalsError;
+
+      // Aggiorna gli stati
+      setTransactions(transactionsData || []);
+      setCategories(categoriesData || []);
+      setGoals(goalsData || []);
+
+      console.log('Dati ricaricati con successo');
+    } catch (error) {
+      console.error('Errore nel ricaricamento dei dati:', error);
     }
   };
 
   const value = {
     transactions,
     categories,
-    savingsGoals,
-    summary,
+    goals,
     addTransaction,
     updateTransaction,
     deleteTransaction,
     addCategory,
     updateCategory,
     deleteCategory,
-    addSavingsGoal,
-    editSavingsGoal,
-    updateSavingsGoal,
-    deleteSavingsGoal,
-    refreshSummary: calculateSummary,
-    isLoading
+    addGoal,
+    updateGoal,
+    deleteGoal,
+    refreshData // Aggiungo il nuovo metodo
   };
 
   return (

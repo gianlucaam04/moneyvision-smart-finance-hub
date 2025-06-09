@@ -1,8 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useFinance } from '@/contexts/FinanceContext';
 import { Category, Transaction } from '@/types';
-import Header from '@/components/Layout/Header';
-import Navigation from '@/components/Layout/Navigation';
+import Layout from '@/components/Layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -344,279 +343,268 @@ const Categories: React.FC = () => {
 
   // Renderizzazione della pagina
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <Header />
-      <div className="flex flex-col lg:flex-row">
-        <aside className="hidden lg:block w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 min-h-screen">
-          <div className="p-6">
-            <Navigation />
+    <Layout>
+      <div className="max-w-7xl mx-auto space-y-4 lg:space-y-6">
+        {/* Header e Filtri */}
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white animate-fade-in">
+                Gestione Categorie
+              </h1>
+              <p className="text-sm lg:text-base text-gray-600 dark:text-gray-300 mt-1">
+                Organizza e monitora le tue categorie di spesa e entrata
+              </p>
+            </div>
           </div>
-        </aside>
-        <main className="flex-1 p-4 lg:p-6 pb-28 max-w-full overflow-x-hidden">
-          <div className="max-w-7xl mx-auto space-y-4 lg:space-y-6">
-            {/* Header e Filtri */}
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div>
-                  <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white animate-fade-in">
-                    Gestione Categorie
-                  </h1>
-                  <p className="text-sm lg:text-base text-gray-600 dark:text-gray-300 mt-1">
-                    Organizza e monitora le tue categorie di spesa e entrata
-                  </p>
+        </div>
+
+        {/* Quick Stats */}
+        <Card className="animate-fade-in">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center text-lg lg:text-xl">
+              <Palette className="w-5 h-5 mr-2" />
+              Statistiche Rapide
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <div className="text-xl lg:text-2xl font-bold text-blue-600">
+                  {filteredCategories.length}
+                </div>
+                <div className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">
+                  Categorie Totali
+                </div>
+              </div>
+              
+              <div className="text-center p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                <div className="text-xl lg:text-2xl font-bold text-red-600">
+                  {expenseCategories.length}
+                </div>
+                <div className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">
+                  Categorie Spesa
+                </div>
+              </div>
+              
+              <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                <div className="text-xl lg:text-2xl font-bold text-green-600">
+                  {incomeCategories.length}
+                </div>
+                <div className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">
+                  Categorie Entrata
+                </div>
+              </div>
+              
+              <div className="text-center p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                <div className="text-xl lg:text-2xl font-bold text-yellow-600">
+                  {filteredCategories.filter(cat => cat.budget).length}
+                </div>
+                <div className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">
+                  Con Budget
                 </div>
               </div>
             </div>
+          </CardContent>
+        </Card>
 
-            {/* Quick Stats */}
-            <Card className="animate-fade-in">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center text-lg lg:text-xl">
-                  <Palette className="w-5 h-5 mr-2" />
-                  Statistiche Rapide
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                    <div className="text-xl lg:text-2xl font-bold text-blue-600">
-                      {filteredCategories.length}
-                    </div>
-                    <div className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">
-                      Categorie Totali
-                    </div>
-                  </div>
-                  
-                  <div className="text-center p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                    <div className="text-xl lg:text-2xl font-bold text-red-600">
-                      {expenseCategories.length}
-                    </div>
-                    <div className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">
-                      Categorie Spesa
-                    </div>
-                  </div>
-                  
-                  <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                    <div className="text-xl lg:text-2xl font-bold text-green-600">
-                      {incomeCategories.length}
-                    </div>
-                    <div className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">
-                      Categorie Entrata
-                    </div>
-                  </div>
-                  
-                  <div className="text-center p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-                    <div className="text-xl lg:text-2xl font-bold text-yellow-600">
-                      {filteredCategories.filter(cat => cat.budget).length}
-                    </div>
-                    <div className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">
-                      Con Budget
+        <Button 
+          className="w-full sm:w-auto bg-gradient-to-r from-finance-blue to-finance-green hover:from-finance-blue/90 hover:to-finance-green/90 text-white"
+          onClick={openAddCategoryDialog}
+        >
+          <CirclePlus className="w-4 h-4 mr-2" />
+          Nuova Categoria
+        </Button>
+
+        {/* Filtri e Ricerca */}
+        <FilterBar
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          typeFilter={typeFilter}
+          onTypeFilterChange={setTypeFilter}
+          sortBy={sortBy}
+          onSortByChange={setSortBy}
+        />
+
+        {/* Categories Overview */}
+        <div className="w-full overflow-hidden">
+          {(typeFilter === 'all' || typeFilter === 'expense') && (
+          <Card className="animate-fade-in">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center text-lg lg:text-xl">
+                <span className="text-xl mr-2">💸</span>
+                Categorie di Spesa ({expenseCategories.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {expenseCategories.length === 0 && (
+                <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                  <Package className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                  <p>Nessuna categoria di spesa trovata</p>
+                  {searchQuery && (
+                    <Button 
+                      variant="link" 
+                      className="mt-2" 
+                      onClick={() => setSearchQuery('')}
+                    >
+                      Cancella ricerca
+                    </Button>
+                  )}
+                </div>
+              )}
+              
+              {expenseCategories.map((category) => (
+                <div key={category.id} className="p-3 lg:p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div 
+                      className="w-4 h-4 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: category.color }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          {(() => {
+                            const IconComponent = (LucideIcons as any)[category.icon];
+                            return IconComponent ? <IconComponent className="w-4 h-4 text-gray-500 dark:text-gray-400" /> : null;
+                          })()}
+                          <h3 className="font-semibold text-gray-900 dark:text-white">{highlightCategoryName(category.name)}</h3>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEditCategoryDialog(category)}
+                            className="p-1 h-auto"
+                          >
+                            <Edit className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteCategory(category)}
+                            className="p-1 h-auto hover:text-red-600"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-2 w-full">
+                        <div 
+                          className="text-sm text-gray-600 dark:text-gray-300 whitespace-normal break-words cursor-pointer hover:underline"
+                          onClick={() => viewCategoryTransactions(category.name)}
+                        >
+                          {category.transactions} transazioni • {formatCurrency(category.totalAmount)}
+                        </div>
+                        {category.budget && (
+                          <div className={`text-xs px-2 py-1 rounded whitespace-nowrap ${
+                            category.totalAmount > category.budget 
+                              ? 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-300'
+                              : 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-300'
+                          }`}>
+                            Budget: {formatCurrency(category.budget)}
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="flex flex-wrap gap-2 mt-3">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openBudgetDialog(category)}
+                          className="text-xs h-7"
+                        >
+                          <Target className="w-3 h-3 mr-1" />
+                          {category.budget ? 'Modifica Budget' : 'Imposta Budget'}
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-
-            <Button 
-                  className="w-full sm:w-auto bg-gradient-to-r from-finance-blue to-finance-green hover:from-finance-blue/90 hover:to-finance-green/90 text-white"
-                  onClick={openAddCategoryDialog}
-                >
-                  <CirclePlus className="w-4 h-4 mr-2" />
-                  Nuova Categoria
-                </Button>
-
-            {/* Filtri e Ricerca */}
-            <FilterBar
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
-                typeFilter={typeFilter}
-                onTypeFilterChange={setTypeFilter}
-                sortBy={sortBy}
-                onSortByChange={setSortBy}
-              />
-
-            {/* Categories Overview */}
-            <div className="w-full overflow-hidden">
-              {(typeFilter === 'all' || typeFilter === 'expense') && (
-              <Card className="animate-fade-in">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center text-lg lg:text-xl">
-                    <span className="text-xl mr-2">💸</span>
-                    Categorie di Spesa ({expenseCategories.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {expenseCategories.length === 0 && (
-                    <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-                      <Package className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                      <p>Nessuna categoria di spesa trovata</p>
-                      {searchQuery && (
-                        <Button 
-                          variant="link" 
-                          className="mt-2" 
-                          onClick={() => setSearchQuery('')}
-                        >
-                          Cancella ricerca
-                        </Button>
-                      )}
-                    </div>
+              ))}
+            </CardContent>
+          </Card>
+          )}
+          {(typeFilter === 'all' || typeFilter === 'income') && (
+          <Card className="animate-fade-in">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center text-lg lg:text-xl">
+                <span className="text-xl mr-2">💰</span>
+                Categorie di Entrata ({incomeCategories.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {incomeCategories.length === 0 && (
+                <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                  <Package className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                  <p>Nessuna categoria di entrata trovata</p>
+                  {searchQuery && (
+                    <Button 
+                      variant="link" 
+                      className="mt-2" 
+                      onClick={() => setSearchQuery('')}
+                    >
+                      Cancella ricerca
+                    </Button>
                   )}
-                  
-                  {expenseCategories.map((category) => (
-                    <div key={category.id} className="p-3 lg:p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <div 
-                          className="w-4 h-4 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: category.color }}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              {(() => {
-                                const IconComponent = (LucideIcons as any)[category.icon];
-                                return IconComponent ? <IconComponent className="w-4 h-4 text-gray-500 dark:text-gray-400" /> : null;
-                              })()}
-                              <h3 className="font-semibold text-gray-900 dark:text-white">{highlightCategoryName(category.name)}</h3>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openEditCategoryDialog(category)}
-                                className="p-1 h-auto"
-                              >
-                                <Edit className="w-3 h-3" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDeleteCategory(category)}
-                                className="p-1 h-auto hover:text-red-600"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </Button>
-                            </div>
-                          </div>
-                          
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-2 w-full">
-                            <div 
-                              className="text-sm text-gray-600 dark:text-gray-300 whitespace-normal break-words cursor-pointer hover:underline"
-                              onClick={() => viewCategoryTransactions(category.name)}
-                            >
-                              {category.transactions} transazioni • {formatCurrency(category.totalAmount)}
-                            </div>
-                            {category.budget && (
-                              <div className={`text-xs px-2 py-1 rounded whitespace-nowrap ${
-                                category.totalAmount > category.budget 
-                                  ? 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-300'
-                                  : 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-300'
-                              }`}>
-                                Budget: {formatCurrency(category.budget)}
-                              </div>
-                            )}
-                          </div>
-                          
-                          <div className="flex flex-wrap gap-2 mt-3">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => openBudgetDialog(category)}
-                              className="text-xs h-7"
-                            >
-                              <Target className="w-3 h-3 mr-1" />
-                              {category.budget ? 'Modifica Budget' : 'Imposta Budget'}
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
+                </div>
               )}
-              {(typeFilter === 'all' || typeFilter === 'income') && (
-              <Card className="animate-fade-in">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center text-lg lg:text-xl">
-                    <span className="text-xl mr-2">💰</span>
-                    Categorie di Entrata ({incomeCategories.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {incomeCategories.length === 0 && (
-                    <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-                      <Package className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                      <p>Nessuna categoria di entrata trovata</p>
-                      {searchQuery && (
-                        <Button 
-                          variant="link" 
-                          className="mt-2" 
-                          onClick={() => setSearchQuery('')}
-                        >
-                          Cancella ricerca
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                  
-                  {incomeCategories.map((category) => (
-                    <div key={category.id} className="p-3 lg:p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <div 
-                          className="w-4 h-4 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: category.color }}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              {(() => {
-                                const IconComponent = (LucideIcons as any)[category.icon];
-                                return IconComponent ? <IconComponent className="w-4 h-4 text-gray-500 dark:text-gray-400" /> : null;
-                              })()}
-                              <h3 className="font-semibold text-gray-900 dark:text-white">{highlightCategoryName(category.name)}</h3>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openEditCategoryDialog(category)}
-                                className="p-1 h-auto"
-                              >
-                                <Edit className="w-3 h-3" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDeleteCategory(category)}
-                                className="p-1 h-auto hover:text-red-600"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </Button>
-                            </div>
-                          </div>
-                          
-                          <div 
-                            className="text-sm text-gray-600 dark:text-gray-300 whitespace-normal break-words mt-2 cursor-pointer hover:underline"
-                            onClick={() => viewCategoryTransactions(category.name)}
+              
+              {incomeCategories.map((category) => (
+                <div key={category.id} className="p-3 lg:p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div 
+                      className="w-4 h-4 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: category.color }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          {(() => {
+                            const IconComponent = (LucideIcons as any)[category.icon];
+                            return IconComponent ? <IconComponent className="w-4 h-4 text-gray-500 dark:text-gray-400" /> : null;
+                          })()}
+                          <h3 className="font-semibold text-gray-900 dark:text-white">{highlightCategoryName(category.name)}</h3>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEditCategoryDialog(category)}
+                            className="p-1 h-auto"
                           >
-                            {category.transactions} transazioni • {formatCurrency(category.totalAmount)}
-                          </div>
-                          
-                          <div className="flex items-center gap-2 mt-3 text-xs text-green-600 dark:text-green-400">
-                            <TrendingUp className="w-3 h-3" />
-                            <span>Fonte di entrata attiva</span>
-                          </div>
+                            <Edit className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteCategory(category)}
+                            className="p-1 h-auto hover:text-red-600"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
                         </div>
                       </div>
+                      
+                      <div 
+                        className="text-sm text-gray-600 dark:text-gray-300 whitespace-normal break-words mt-2 cursor-pointer hover:underline"
+                        onClick={() => viewCategoryTransactions(category.name)}
+                      >
+                        {category.transactions} transazioni • {formatCurrency(category.totalAmount)}
+                      </div>
+                      
+                      <div className="flex items-center gap-2 mt-3 text-xs text-green-600 dark:text-green-400">
+                        <TrendingUp className="w-3 h-3" />
+                        <span>Fonte di entrata attiva</span>
+                      </div>
                     </div>
-                  ))}
-                </CardContent>
-              </Card>
-              )}
-            </div>
-
-          </div>
-        </main>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+          )}
+        </div>
       </div>
 
       {/* Mobile Navigation */}
@@ -818,7 +806,7 @@ const Categories: React.FC = () => {
         cancelLabel="Annulla"
         onConfirm={handleConfirmDelete}
       />
-    </div>
+    </Layout>
   );
 };
 

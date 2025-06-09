@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Header from '@/components/Layout/Header';
-import Navigation from '@/components/Layout/Navigation';
+import Layout from '@/components/Layout/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
@@ -35,6 +34,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useFinance } from '@/contexts/FinanceContext';
 import {
   Dialog,
   DialogContent,
@@ -59,6 +59,7 @@ import { supabase } from '@/integrations/supabase/client';
 const Settings: React.FC = () => {
   const { toast } = useToast();
   const { user, updateUserPreferences, deleteAccount: deleteUserAccount, exportData, importData, changePassword, logout } = useAuth();
+  const { refreshData } = useFinance();
   const navigate = useNavigate();
   
   // State per dialoghi
@@ -201,6 +202,7 @@ const Settings: React.FC = () => {
     }
   };
   
+  // Gestione importazione file aggiornata per ricaricare i dati
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -215,6 +217,14 @@ const Settings: React.FC = () => {
             title: "📥 Importazione completata",
             description: "I dati sono stati importati con successo.",
           });
+          
+          // Ricarica tutti i dati dopo l'importazione
+          await refreshData();
+          
+          // Forza un refresh della pagina per assicurarsi che tutto sia aggiornato
+          setTimeout(() => {
+            window.location.reload();
+          }, 1000);
         }
       } catch (error) {
         toast({
@@ -313,252 +323,240 @@ const Settings: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <Header />
-      
-      <div className="flex">
-        <aside className="hidden lg:block w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 min-h-screen">
-          <div className="p-6">
-            <Navigation />
-          </div>
-        </aside>
+    <Layout>
+      <div className="max-w-4xl mx-auto space-y-6">
+        {/* Header Section */}
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white animate-fade-in">
+            Impostazioni
+          </h1>
+          <p className="text-gray-600 dark:text-gray-300 mt-1">
+            Personalizza la tua esperienza MoneyVision
+          </p>
+        </div>
 
-        <main className="flex-1 p-4 lg:p-6 pb-24 lg:pb-6 overflow-x-hidden">
-          <div className="max-w-4xl mx-auto space-y-6">
-            {/* Header Section */}
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white animate-fade-in">
-                Impostazioni
-              </h1>
-              <p className="text-gray-600 dark:text-gray-300 mt-1">
-                Personalizza la tua esperienza MoneyVision
-              </p>
-            </div>
-
-            <Tabs defaultValue="app" className="space-y-6">
-              <TabsList>
-                <TabsTrigger value="app">Gestione App</TabsTrigger>
-                <TabsTrigger value="account">Account & Dati</TabsTrigger>
-              </TabsList>
-              <TabsContent value="app" className="space-y-6">
-                {/* Preferenze App */}
-                <Card className="animate-fade-in">
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <SettingsIcon className="w-5 h-5 mr-2" />
-                      Preferenze Applicazione
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        {darkMode ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
-                        <div>
-                          <Label>Tema Scuro</Label>
-                          <p className="text-sm text-gray-600 dark:text-gray-300">
-                            Attiva il tema scuro per ridurre l'affaticamento degli occhi
-                          </p>
-                        </div>
-                      </div>
-                      <Switch 
-                        checked={darkMode} 
-                        onCheckedChange={handleDarkModeToggle}
-                      />
-                    </div>
-
-                    <Separator/>
-                  </CardContent>
-                </Card>
-
-                {/* Notifiche */}
-                <Card className="animate-fade-in">
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <Bell className="w-5 h-5 mr-2" />
-                      Notifiche
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <Label>Notifiche Push</Label>
-                        <p className="text-sm text-gray-600 dark:text-gray-300">
-                          Ricevi notifiche per transazioni e obiettivi
-                        </p>
-                      </div>
-                      <Switch 
-                        checked={notifications} 
-                        onCheckedChange={handleNotificationsToggle}
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-
-              </TabsContent>
-              <TabsContent value="account" className="space-y-6">
-                {/* Sicurezza */}
-                <Card className="animate-fade-in">
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <Shield className="w-5 h-5 mr-2" />
-                      Sicurezza
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <Smartphone className="w-5 h-5" />
-                        <div>
-                          <Label>Autenticazione Biometrica</Label>
-                          <p className="text-sm text-gray-600 dark:text-gray-300">
-                            Usa impronta digitale o Face ID per accedere
-                          </p>
-                        </div>
-                      </div>
-                      <Switch 
-                        checked={biometricAuth} 
-                        onCheckedChange={handleBiometricToggle}
-                      />
-                    </div>
-
-                    <Separator />
-
-                    <div className="space-y-2">
-                      <Button 
-                        variant="outline" 
-                        className="w-full justify-start"
-                        onClick={() => setShowPasswordDialog(true)}
-                      >
-                        <Lock className="w-4 h-4 mr-2" />
-                        Cambia Password
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Gestione Dati */}
-                <Card className="animate-fade-in">
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <Database className="w-5 h-5 mr-2" />
-                      Gestione Dati
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Button 
-                        variant="outline" 
-                        className="justify-start"
-                        onClick={handleExportData}
-                      >
-                        <Download className="w-4 h-4 mr-2" />
-                        Esporta Dati
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        className="justify-start"
-                        onClick={handleImportClick}
-                      >
-                        <Upload className="w-4 h-4 mr-2" />
-                        Importa Dati
-                      </Button>
-                      <input
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={handleFileChange}
-                        accept=".json"
-                        className="hidden"
-                      />
-                    </div>
-
-                    <Separator />
-
-                    <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg border border-orange-200 dark:border-orange-800">
-                      <h4 className="font-semibold text-orange-900 dark:text-orange-100 mb-2 flex items-center">
-                        <AlertTriangle className="w-4 h-4 mr-2" />
-                        Cancellazione Dati
-                      </h4>
-                      <p className="text-sm text-orange-700 dark:text-orange-300 mb-4">
-                        Elimina tutti i tuoi dati finanziari (transazioni, categorie, obiettivi, investimenti) mantenendo l'account attivo.
+        <Tabs defaultValue="app" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="app">Gestione App</TabsTrigger>
+            <TabsTrigger value="account">Account & Dati</TabsTrigger>
+          </TabsList>
+          <TabsContent value="app" className="space-y-6">
+            {/* Preferenze App */}
+            <Card className="animate-fade-in">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <SettingsIcon className="w-5 h-5 mr-2" />
+                  Preferenze Applicazione
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    {darkMode ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+                    <div>
+                      <Label>Tema Scuro</Label>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">
+                        Attiva il tema scuro per ridurre l'affaticamento degli occhi
                       </p>
-                      <Button 
-                        variant="outline"
-                        onClick={() => setShowDeleteAllDataDialog(true)}
-                        className="w-full border-orange-300 text-orange-700 hover:bg-orange-100 dark:border-orange-700 dark:text-orange-300 dark:hover:bg-orange-900/40"
-                      >
-                        <Database className="w-4 h-4 mr-2" />
-                        Elimina Tutti i Dati
-                      </Button>
                     </div>
+                  </div>
+                  <Switch 
+                    checked={darkMode} 
+                    onCheckedChange={handleDarkModeToggle}
+                  />
+                </div>
 
-                    <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg border border-red-200 dark:border-red-800">
-                      <h4 className="font-semibold text-red-900 dark:text-red-100 mb-2">
-                        Zona Pericolosa
-                      </h4>
-                      <p className="text-sm text-red-700 dark:text-red-300 mb-4">
-                        L'eliminazione dell'account è permanente e non può essere annullata.
+                <Separator/>
+              </CardContent>
+            </Card>
+
+            {/* Notifiche */}
+            <Card className="animate-fade-in">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Bell className="w-5 h-5 mr-2" />
+                  Notifiche
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>Notifiche Push</Label>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                      Ricevi notifiche per transazioni e obiettivi
+                    </p>
+                  </div>
+                  <Switch 
+                    checked={notifications} 
+                    onCheckedChange={handleNotificationsToggle}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+          </TabsContent>
+          <TabsContent value="account" className="space-y-6">
+            {/* Sicurezza */}
+            <Card className="animate-fade-in">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Shield className="w-5 h-5 mr-2" />
+                  Sicurezza
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <Smartphone className="w-5 h-5" />
+                    <div>
+                      <Label>Autenticazione Biometrica</Label>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">
+                        Usa impronta digitale o Face ID per accedere
                       </p>
-                      <Button 
-                        variant="destructive" 
-                        onClick={() => setShowDeleteDialog(true)}
-                        className="w-full"
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Elimina Account
-                      </Button>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                  <Switch 
+                    checked={biometricAuth} 
+                    onCheckedChange={handleBiometricToggle}
+                  />
+                </div>
 
-                {/* Info App */}
-                <Card className="animate-fade-in">
-                  <CardHeader>
-                    <CardTitle>Informazioni App</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <Label>Versione</Label>
-                        <p className="text-gray-600 dark:text-gray-300">1.0.0</p>
-                      </div>
-                      <div>
-                        <Label>Ultimo Aggiornamento</Label>
-                        <p className="text-gray-600 dark:text-gray-300">15 Gen 2025</p>
-                      </div>
-                    </div>
-                    <Separator className="my-4" />
-                    <div className="space-y-2">
-                      <Button 
-                        variant="ghost" 
-                        className="w-full justify-start"
-                        onClick={() => setShowTermsDialog(true)}
-                      >
-                        <FileText className="w-4 h-4 mr-2" />
-                        Termini di Servizio
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        className="w-full justify-start"
-                        onClick={() => setShowPrivacyDialog(true)}
-                      >
-                        <ShieldAlert className="w-4 h-4 mr-2" />
-                        Privacy Policy
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        className="w-full justify-start"
-                        onClick={() => setShowSupportDialog(true)}
-                      >
-                        <HelpCircle className="w-4 h-4 mr-2" />
-                        Supporto
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-          </div>
-        </main>
+                <Separator />
+
+                <div className="space-y-2">
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={() => setShowPasswordDialog(true)}
+                  >
+                    <Lock className="w-4 h-4 mr-2" />
+                    Cambia Password
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Gestione Dati */}
+            <Card className="animate-fade-in">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Database className="w-5 h-5 mr-2" />
+                  Gestione Dati
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Button 
+                    variant="outline" 
+                    className="justify-start"
+                    onClick={handleExportData}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Esporta Dati
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="justify-start"
+                    onClick={handleImportClick}
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Importa Dati
+                  </Button>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    accept=".json"
+                    className="hidden"
+                  />
+                </div>
+
+                <Separator />
+
+                <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg border border-orange-200 dark:border-orange-800">
+                  <h4 className="font-semibold text-orange-900 dark:text-orange-100 mb-2 flex items-center">
+                    <AlertTriangle className="w-4 h-4 mr-2" />
+                    Cancellazione Dati
+                  </h4>
+                  <p className="text-sm text-orange-700 dark:text-orange-300 mb-4">
+                    Elimina tutti i tuoi dati finanziari (transazioni, categorie, obiettivi, investimenti) mantenendo l'account attivo.
+                  </p>
+                  <Button 
+                    variant="outline"
+                    onClick={() => setShowDeleteAllDataDialog(true)}
+                    className="w-full border-orange-300 text-orange-700 hover:bg-orange-100 dark:border-orange-700 dark:text-orange-300 dark:hover:bg-orange-900/40"
+                  >
+                    <Database className="w-4 h-4 mr-2" />
+                    Elimina Tutti i Dati
+                  </Button>
+                </div>
+
+                <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg border border-red-200 dark:border-red-800">
+                  <h4 className="font-semibold text-red-900 dark:text-red-100 mb-2">
+                    Zona Pericolosa
+                  </h4>
+                  <p className="text-sm text-red-700 dark:text-red-300 mb-4">
+                    L'eliminazione dell'account è permanente e non può essere annullata.
+                  </p>
+                  <Button 
+                    variant="destructive" 
+                    onClick={() => setShowDeleteDialog(true)}
+                    className="w-full"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Elimina Account
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Info App */}
+            <Card className="animate-fade-in">
+              <CardHeader>
+                <CardTitle>Informazioni App</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <Label>Versione</Label>
+                    <p className="text-gray-600 dark:text-gray-300">1.0.0</p>
+                  </div>
+                  <div>
+                    <Label>Ultimo Aggiornamento</Label>
+                    <p className="text-gray-600 dark:text-gray-300">15 Gen 2025</p>
+                  </div>
+                </div>
+                <Separator className="my-4" />
+                <div className="space-y-2">
+                  <Button 
+                    variant="ghost" 
+                    className="w-full justify-start"
+                    onClick={() => setShowTermsDialog(true)}
+                  >
+                    <FileText className="w-4 h-4 mr-2" />
+                    Termini di Servizio
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    className="w-full justify-start"
+                    onClick={() => setShowPrivacyDialog(true)}
+                  >
+                    <ShieldAlert className="w-4 h-4 mr-2" />
+                    Privacy Policy
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    className="w-full justify-start"
+                    onClick={() => setShowSupportDialog(true)}
+                  >
+                    <HelpCircle className="w-4 h-4 mr-2" />
+                    Supporto
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Mobile Navigation */}
@@ -789,7 +787,7 @@ const Settings: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </Layout>
   );
 };
 

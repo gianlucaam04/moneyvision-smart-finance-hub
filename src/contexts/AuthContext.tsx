@@ -13,7 +13,7 @@ interface AuthContextType {
   changePassword: (oldPassword: string, newPassword: string) => Promise<boolean>;
   deleteAccount: () => Promise<boolean>;
   exportData: () => Promise<boolean>;
-  importData: (data: string) => Promise<boolean>;
+  importData: (jsonContent: string) => Promise<boolean>;
   updateUserProfile: (profile: { name?: string; email?: string }) => Promise<boolean>;
 }
 
@@ -27,7 +27,7 @@ export const useAuth = () => {
   return context;
 };
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -298,77 +298,141 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
   
-  const importData = async (data: string): Promise<boolean> => {
+  const importData = async (jsonContent: string): Promise<boolean> => {
     if (!user) return false;
     
     try {
-      const importData = JSON.parse(data);
+      const data = JSON.parse(jsonContent);
+      console.log('Dati da importare:', data);
       
-      // Import user profile and preferences if present
-      if (importData.user) {
-        const { email, name, preferences } = importData.user;
-        if (email || name) {
-          await updateUserProfile({ email, name });
+      if (!data.transactions || !Array.isArray(data.transactions)) {
+        throw new Error('Formato file non valido: transazioni mancanti');
+      }
+
+      const currentDate = new Date();
+      const threeYearsAgo = new Date();
+      threeYearsAgo.setFullYear(currentDate.getFullYear() - 3);
+
+      // Separa transazioni recenti e storiche
+      const recentTransactions = [];
+      const historicalTransactions = [];
+      
+      data.transactions.forEach((transaction: any) => {
+        const transactionDate = new Date(transaction.date);
+        if (transactionDate >= threeYearsAgo) {
+          recentTransactions.push({
+            ...transaction,
+            user_id: user.id,
+            id: undefined // Lascia che il database generi un nuovo ID
+          });
+        } else {
+          historicalTransactions.push(transaction);
         }
-        if (preferences) {
-          await updateUserPreferences(preferences);
-        }
-      }
-      
-      // Import categories with required defaults
-      if (Array.isArray(importData.categories)) {
-        const categories = importData.categories.map((cat: any) => ({
-          user_id: user.id,
-          name: cat.name,
-          color: cat.color,
-          icon: cat.icon || '',
-          type: cat.type,
-          budget: cat.budget ?? 0,
-        }));
-        await supabase.from('categories').insert(categories);
-      }
-      
-      // Import transactions with required defaults
-      if (Array.isArray(importData.transactions)) {
-        const transactions = importData.transactions.map((trans: any) => ({
-          user_id: user.id,
-          amount: trans.amount,
-          description: trans.description || '',
-          category: trans.category,
-          type: trans.type,
-          date: trans.date,
-          note: trans.note || '',
-        }));
-        await supabase.from('transactions').insert(transactions);
-      }
-      
-      // Import savings goals with required defaults
-      if (Array.isArray(importData.goals)) {
-        const goals = importData.goals.map((goal: any) => ({
-          user_id: user.id,
-          title: goal.title,
-          target_amount: goal.target_amount,
-          current_amount: goal.current_amount,
-          deadline: goal.deadline,
-          color: goal.color || '#000000',
-          description: goal.description || '',
-          is_completed: goal.is_completed ?? false,
-        }));
-        await supabase.from('savings_goals').insert(goals);
-      }
-      
-      toast({
-        title: "Successo",
-        description: "Dati importati con successo",
       });
+
+      console.log(`Transazioni recenti: ${recentTransactions.length}, Storiche: ${historicalTransactions.length}`);
+
+      // Importa transazioni recenti
+      if (recentTransactions.length > 0) {
+        const { error: transactionError } = await supabase
+          .from('transactions')
+          .insert(recentTransactions);
+
+        if (transactionError) {
+          console.error('Errore importazione transazioni:', transactionError);
+          throw transactionError;
+        }
+      }
+
+      // Importa categorie se presenti
+      if (data.categories && Array.isArray(data.categories)) {
+        const categoriesToImport = data.categories.map((category: any) => ({
+          ...category,
+          user_id: user.id,
+          id: undefined
+        }));
+
+        const { error: categoryError } = await supabase
+          .from('categories')
+          .insert(categoriesToImport);
+
+        if (categoryError) {
+          console.error('Errore importazione categorie:', categoryError);
+          // Non bloccare l'importazione per errori nelle categorie
+        }
+      }
+
+      // Importa obiettivi se presenti
+      if (data.goals && Array.isArray(data.goals)) {
+        const goalsToImport = data.goals.map((goal: any) => ({
+          ...goal,
+          user_id: user.id,
+          id: undefined
+        }));
+
+        const { error: goalsError } = await supabase
+          .from('savings_goals')
+          .insert(goalsToImport);
+
+        if (goalsError) {
+          console.error('Errore importazione obiettivi:', goalsError);
+        }
+      }
+
+      // Importa investimenti se presenti
+      if (data.investments && Array.isArray(data.investments)) {
+        const investmentsToImport = data.investments.map((investment: any) => ({
+          ...investment,
+          user_id: user.id,
+          id: undefined
+        }));
+
+        const { error: investmentsError } = await supabase
+          .from('investments')
+          .insert(investmentsToImport);
+
+        if (investmentsError) {
+          console.error('Errore importazione investimenti:', investmentsError);
+        }
+      }
+
+      // Salva dati storici nell'archivio se presenti
+      if (historicalTransactions.length > 0) {
+        const historicalCategories = data.categories?.filter((cat: any) => 
+          historicalTransactions.some((trans: any) => trans.category === cat.name)
+        ) || [];
+
+        const archiveData = {
+          transactions: historicalTransactions,
+          categories: historicalCategories,
+          archived_at: new Date().toISOString(),
+          archive_reason: 'import_historical_data'
+        };
+
+        const { error: archiveError } = await supabase
+          .from('archives')
+          .insert({
+            user_id: user.id,
+            file_name: `import_historical_${new Date().toISOString().split('T')[0]}`,
+            file_data: archiveData,
+            archive_type: 'import_archive',
+            date_range_start: historicalTransactions.reduce((min, trans) => {
+              const date = new Date(trans.date);
+              return date < min ? date : min;
+            }, new Date(historicalTransactions[0].date)).toISOString().split('T')[0],
+            date_range_end: threeYearsAgo.toISOString().split('T')[0]
+          });
+
+        if (archiveError) {
+          console.error('Errore salvataggio dati storici:', archiveError);
+        } else {
+          console.log('Dati storici salvati nell\'archivio');
+        }
+      }
+
       return true;
     } catch (error) {
-      console.error('Import error:', error);
-      toast({
-        title: "Errore",
-        description: "Impossibile importare i dati",
-        variant: "destructive",
-      });
+      console.error('Errore nell\'importazione:', error);
       return false;
     }
   };
