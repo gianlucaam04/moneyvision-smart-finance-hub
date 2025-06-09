@@ -17,8 +17,9 @@ const Header: React.FC<HeaderProps> = ({ title, icon, className }) => {
   const navigate = useNavigate();
 
   const getUserDisplayName = () => {
-    if (user?.name) return user.name;
-    if (user?.email) return user.email.split('@')[0];
+    if (!user) return 'Utente';
+    if (user.name) return user.name;
+    if (user.email) return user.email.split('@')[0];
     return 'Utente';
   };
 

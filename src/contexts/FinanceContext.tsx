@@ -46,13 +46,14 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [goals, setGoals] = useState<SavingsGoal[]>([]);
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
 
   useEffect(() => {
-    if (user) {
+    // Solo fetch dei dati quando l'utente è caricato e autenticato
+    if (!isLoading && user) {
       fetchInitialData();
     }
-  }, [user]);
+  }, [user, isLoading]);
 
   const transformTransactionData = (data: any[]): Transaction[] => {
     return data.map(item => ({
@@ -334,10 +335,10 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       title: goal.title,
       description: goal.description || '',
       target_amount: goal.targetAmount,
-      current_amount: goal.currentAmount,
+      currentAmount: goal.currentAmount,
       deadline: goal.deadline,
       color: goal.color,
-      is_completed: goal.isCompleted,
+      isCompleted: goal.isCompleted,
       user_id: user.id,
       id: uuidv4()
     };
@@ -409,67 +410,9 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const addSavingsGoal = addGoal;
-  const editSavingsGoal = async (id: string, updates: Partial<SavingsGoal>) => {
-    try {
-      const dbUpdates: any = {};
-      if (updates.title !== undefined) dbUpdates.title = updates.title;
-      if (updates.description !== undefined) dbUpdates.description = updates.description;
-      if (updates.targetAmount !== undefined) dbUpdates.target_amount = updates.targetAmount;
-      if (updates.currentAmount !== undefined) dbUpdates.current_amount = updates.currentAmount;
-      if (updates.deadline !== undefined) dbUpdates.deadline = updates.deadline;
-      if (updates.color !== undefined) dbUpdates.color = updates.color;
-      if (updates.isCompleted !== undefined) dbUpdates.is_completed = updates.isCompleted;
-      dbUpdates.updated_at = new Date().toISOString();
-
-      const { error } = await supabase
-        .from('savings_goals')
-        .update(dbUpdates)
-        .eq('id', id)
-        .eq('user_id', user?.id);
-
-      if (error) throw error;
-
-      setGoals(prevGoals =>
-        prevGoals.map(goal =>
-          goal.id === id ? { ...goal, ...updates } : goal
-        )
-      );
-    } catch (error) {
-      console.error("Failed to update goal:", error);
-    }
-  };
-
+  const editSavingsGoal = updateGoal;
   const deleteSavingsGoal = deleteGoal;
-
-  const updateSavingsGoal = async (id: string, updates: Partial<SavingsGoal>) => {
-    try {
-      const dbUpdates: any = {};
-      if (updates.title !== undefined) dbUpdates.title = updates.title;
-      if (updates.description !== undefined) dbUpdates.description = updates.description;
-      if (updates.targetAmount !== undefined) dbUpdates.target_amount = updates.targetAmount;
-      if (updates.currentAmount !== undefined) dbUpdates.current_amount = updates.currentAmount;
-      if (updates.deadline !== undefined) dbUpdates.deadline = updates.deadline;
-      if (updates.color !== undefined) dbUpdates.color = updates.color;
-      if (updates.isCompleted !== undefined) dbUpdates.is_completed = updates.isCompleted;
-      dbUpdates.updated_at = new Date().toISOString();
-
-      const { error } = await supabase
-        .from('savings_goals')
-        .update(dbUpdates)
-        .eq('id', id)
-        .eq('user_id', user?.id);
-
-      if (error) throw error;
-
-      setGoals(prevGoals =>
-        prevGoals.map(goal =>
-          goal.id === id ? { ...goal, ...updates } : goal
-        )
-      );
-    } catch (error) {
-      console.error("Failed to update goal:", error);
-    }
-  };
+  const updateSavingsGoal = updateGoal;
 
   const refreshData = async () => {
     if (!user) return;

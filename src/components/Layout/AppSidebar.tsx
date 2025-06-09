@@ -88,19 +88,24 @@ const AppSidebar: React.FC = () => {
     await signOut();
   };
 
-  const getUserInitials = (name: string | undefined) => {
-    if (!name) return 'U';
-    return name
+  const getUserInitials = () => {
+    if (!user) return 'U';
+    
+    const displayName = getUserDisplayName();
+    if (!displayName) return 'U';
+    
+    return displayName
       .split(' ')
-      .map(n => n[0])
+      .map(n => n?.[0] || '')
       .join('')
       .toUpperCase()
-      .slice(0, 2);
+      .slice(0, 2) || 'U';
   };
 
   const getUserDisplayName = () => {
-    if (user?.name) return user.name;
-    if (user?.email) return user.email.split('@')[0];
+    if (!user) return 'Utente';
+    if (user.name) return user.name;
+    if (user.email) return user.email.split('@')[0];
     return 'Utente';
   };
 
@@ -230,7 +235,7 @@ const AppSidebar: React.FC = () => {
             <div className="flex items-center space-x-3 group-data-[collapsible=icon]:justify-center">
               <Avatar className="w-8 h-8">
                 <AvatarFallback className="bg-finance-blue text-white text-sm">
-                  {getUserInitials(user.name)}
+                  {getUserInitials()}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 group-data-[collapsible=icon]:hidden">
