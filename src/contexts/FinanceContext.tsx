@@ -335,10 +335,10 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       title: goal.title,
       description: goal.description || '',
       target_amount: goal.targetAmount,
-      currentAmount: goal.currentAmount,
+      current_amount: goal.currentAmount,
       deadline: goal.deadline,
       color: goal.color,
-      isCompleted: goal.isCompleted,
+      is_completed: goal.isCompleted,
       user_id: user.id,
       id: uuidv4()
     };
@@ -358,6 +358,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setGoals(prevGoals => [...prevGoals, newGoal]);
     } catch (error) {
       console.error("Failed to add goal:", error);
+      throw error;
     }
   };
 
@@ -388,6 +389,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       );
     } catch (error) {
       console.error("Failed to update goal:", error);
+      throw error;
     }
   };
 

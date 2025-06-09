@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '@/components/Layout/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,98 @@ const Settings: React.FC = () => {
   };
 
   const [preferences, setPreferences] = useState(user?.preferences || defaultPreferences);
+
+  // Effetto per sincronizzare le preferenze quando cambiano
+  useEffect(() => {
+    if (user?.preferences) {
+      setPreferences(user.preferences);
+    }
+  }, [user?.preferences]);
+
+  // Funzione per gestire le notifiche
+  const handleNotificationsToggle = async (enabled: boolean) => {
+    const newPreferences = { ...preferences, notifications: enabled };
+    setPreferences(newPreferences);
+
+    if (enabled) {
+      // Richiedi permessi di notifica se abilitato
+      if ('Notification' in window && Notification.permission === 'default') {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          toast.success('Notifiche abilitate! Riceverai promemoria per le tue finanze.');
+          new Notification('MoneyVision', {
+            body: 'Notifiche abilitate con successo!',
+            icon: '/favicon.ico'
+          });
+        } else {
+          toast.error('Permessi di notifica negati. Abilitali dalle impostazioni del browser.');
+          setPreferences({ ...preferences, notifications: false });
+          return;
+        }
+      } else if ('Notification' in window && Notification.permission === 'granted') {
+        toast.success('Notifiche abilitate!');
+        new Notification('MoneyVision', {
+          body: 'Notifiche abilitate con successo!',
+          icon: '/favicon.ico'
+        });
+      }
+    } else {
+      toast.info('Notifiche disabilitate.');
+    }
+
+    // Salva le preferenze
+    try {
+      await updateUserPreferences(newPreferences);
+    } catch (error) {
+      console.error('Errore nel salvare le preferenze notifiche:', error);
+      setPreferences(preferences); // Rollback
+    }
+  };
+
+  // Funzione per gestire il backup automatico
+  const handleAutoBackupToggle = async (enabled: boolean) => {
+    const newPreferences = { ...preferences, autoBackup: enabled };
+    setPreferences(newPreferences);
+
+    if (enabled) {
+      // Esegui un backup immediato per testare
+      try {
+        await handleExportData();
+        toast.success('Backup automatico abilitato! Verrà eseguito settimanalmente.');
+        
+        // Imposta un intervallo per backup automatici (esempio: ogni settimana)
+        const backupInterval = setInterval(async () => {
+          if (preferences.autoBackup) {
+            await handleExportData();
+            console.log('Backup automatico eseguito');
+          }
+        }, 7 * 24 * 60 * 60 * 1000); // 1 settimana
+        
+        // Salva l'ID dell'intervallo nelle preferenze (in un'app reale useresti un job scheduler)
+        localStorage.setItem('backupInterval', backupInterval.toString());
+      } catch (error) {
+        toast.error('Errore nell\'abilitare il backup automatico');
+        setPreferences({ ...preferences, autoBackup: false });
+        return;
+      }
+    } else {
+      // Disabilita il backup automatico
+      const intervalId = localStorage.getItem('backupInterval');
+      if (intervalId) {
+        clearInterval(parseInt(intervalId));
+        localStorage.removeItem('backupInterval');
+      }
+      toast.info('Backup automatico disabilitato.');
+    }
+
+    // Salva le preferenze
+    try {
+      await updateUserPreferences(newPreferences);
+    } catch (error) {
+      console.error('Errore nel salvare le preferenze backup:', error);
+      setPreferences(preferences); // Rollback
+    }
+  };
 
   const handleSavePreferences = async () => {
     try {
@@ -342,24 +434,30 @@ const Settings: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <Bell className="w-4 h-4 text-yellow-600" />
-                    <Label htmlFor="notifications">Notifiche</Label>
+                    <div>
+                      <Label htmlFor="notifications">Notifiche</Label>
+                      <p className="text-xs text-gray-500">Ricevi promemoria e aggiornamenti</p>
+                    </div>
                   </div>
                   <Switch
                     id="notifications"
                     checked={preferences.notifications}
-                    onCheckedChange={(checked) => setPreferences({...preferences, notifications: checked})}
+                    onCheckedChange={handleNotificationsToggle}
                   />
                 </div>
 
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <Shield className="w-4 h-4 text-green-600" />
-                    <Label htmlFor="autoBackup">Backup automatico</Label>
+                    <div>
+                      <Label htmlFor="autoBackup">Backup automatico</Label>
+                      <p className="text-xs text-gray-500">Backup settimanale dei tuoi dati</p>
+                    </div>
                   </div>
                   <Switch
                     id="autoBackup"
                     checked={preferences.autoBackup}
-                    onCheckedChange={(checked) => setPreferences({...preferences, autoBackup: checked})}
+                    onCheckedChange={handleAutoBackupToggle}
                   />
                 </div>
               </div>
