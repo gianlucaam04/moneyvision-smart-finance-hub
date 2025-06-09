@@ -1,17 +1,18 @@
+
 import React, { useState, useEffect } from 'react';
+import Layout from '@/components/Layout/Layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RefreshCw, TrendingUp, TrendingDown, DollarSign, Target, Activity, BarChart3, PieChart } from 'lucide-react';
+import { RefreshCw, TrendingUp, TrendingDown, Target, Activity, BarChart3, PieChart } from 'lucide-react';
 import { toast } from 'sonner';
-import Header from '@/components/Layout/Header';
-import Navigation from '@/components/Layout/Navigation';
 import InvestmentForm from '@/components/Investments/InvestmentForm';
 import InvestmentsList from '@/components/Investments/InvestmentsList';
 import { investmentsService } from '@/services/investmentsService';
 import type { Investment } from '@/types/investments';
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import Together from 'together-ai';
+
 const TOGETHER_API_KEY = '3e5e74406a4de464802163316677abf0b8fae098ac9d23ad1df8fee3a48eb45f';
 let together: Together | null = null;
 if (TOGETHER_API_KEY) {
@@ -110,237 +111,217 @@ const Investments = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-gray-900 dark:to-gray-800 overflow-x-hidden">
-        <Header />
-        <div className="flex flex-col lg:flex-row">
-          <aside className="hidden lg:block w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 min-h-screen p-6 overflow-hidden">
-            <Navigation />
-          </aside>
-          <main className="flex-1 container mx-auto px-4 py-8 space-y-8 pb-24 lg:pb-6 max-w-full overflow-x-hidden">
-            <div className="flex items-center justify-center h-64">
-              <div className="text-center space-y-4">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-finance-blue mx-auto"></div>
-                <p className="text-gray-600 dark:text-gray-400">Caricamento investimenti...</p>
-              </div>
-            </div>
-          </main>
+      <Layout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center space-y-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-finance-blue mx-auto"></div>
+            <p className="text-gray-600 dark:text-gray-400">Caricamento investimenti...</p>
+          </div>
         </div>
-        <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-2 z-50 overflow-hidden">
-          <Navigation />
-        </nav>
-      </div>
+      </Layout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-gray-900 dark:to-gray-800 overflow-x-hidden">
-      <Header />
-      <div className="flex flex-col lg:flex-row">
-        <aside className="hidden lg:block w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 min-h-screen p-6 overflow-hidden">
-          <Navigation />
-        </aside>
-        <main className="flex-1 container mx-auto px-4 py-8 space-y-8 pb-24 lg:pb-6 max-w-full overflow-x-hidden">
-          {/* Header Section */}
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div className="space-y-2">
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-finance-blue to-blue-600 bg-clip-text text-transparent">
-                Portafoglio Investimenti
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400 text-lg">
-                Monitora e gestisci i tuoi investimenti in tempo reale
+    <Layout>
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="space-y-2">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-finance-blue to-blue-600 bg-clip-text text-transparent">
+              Portafoglio Investimenti
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400 text-lg">
+              Monitora e gestisci i tuoi investimenti in tempo reale
+            </p>
+          </div>
+          
+          <div className="flex flex-wrap gap-3">
+            <Button 
+              onClick={handleUpdatePrices}
+              disabled={isUpdatingPrices || investments.length === 0}
+              className="flex-1 whitespace-normal bg-finance-blue hover:bg-blue-600 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isUpdatingPrices ? 'animate-spin' : ''}`} />
+              {isUpdatingPrices ? 'Aggiornamento...' : 'Aggiorna Prezzi'}
+            </Button>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button className="flex-1 whitespace-normal bg-green-500 hover:bg-green-600 text-white shadow-lg transition-all duration-200 flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4" />
+                  Aggiungi Investimento
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Aggiungi Investimento</DialogTitle>
+                </DialogHeader>
+                <InvestmentForm hideTrigger onInvestmentAdded={loadInvestments} />
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+
+        {/* API Status Notice */}
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <div className="text-amber-600 dark:text-amber-400 mt-0.5">
+              <Activity className="w-5 h-5" />
+            </div>
+            <div className="text-sm">
+              <p className="font-medium text-amber-800 dark:text-amber-200">
+                Nota sui prezzi di mercato
+              </p>
+              <p className="text-amber-700 dark:text-amber-300 mt-1">
+                I prezzi vengono aggiornati tramite API esterna. In caso di limitazioni del servizio, 
+                i prezzi potrebbero non essere sempre aggiornati in tempo reale.
               </p>
             </div>
-            
-            <div className="flex flex-wrap gap-3">
-              <Button 
-                onClick={handleUpdatePrices}
-                disabled={isUpdatingPrices || investments.length === 0}
-                className="flex-1 whitespace-normal bg-finance-blue hover:bg-blue-600 text-white shadow-lg hover:shadow-xl transition-all duration-200"
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${isUpdatingPrices ? 'animate-spin' : ''}`} />
-                {isUpdatingPrices ? 'Aggiornamento...' : 'Aggiorna Prezzi'}
-              </Button>
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button className="flex-1 whitespace-normal bg-green-500 hover:bg-green-600 text-white shadow-lg transition-all duration-200 flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4" />
-                    Aggiungi Investimento
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Aggiungi Investimento</DialogTitle>
-                  </DialogHeader>
-                  <InvestmentForm hideTrigger onInvestmentAdded={loadInvestments} />
-                </DialogContent>
-              </Dialog>
-            </div>
           </div>
+        </div>
 
-          {/* API Status Notice */}
-          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
-            <div className="flex items-start gap-3">
-              <div className="text-amber-600 dark:text-amber-400 mt-0.5">
-                <Activity className="w-5 h-5" />
-              </div>
-              <div className="text-sm">
-                <p className="font-medium text-amber-800 dark:text-amber-200">
-                  Nota sui prezzi di mercato
-                </p>
-                <p className="text-amber-700 dark:text-amber-300 mt-1">
-                  I prezzi vengono aggiornati tramite API esterna. In caso di limitazioni del servizio, 
-                  i prezzi potrebbero non essere sempre aggiornati in tempo reale.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Riepilogo Portafoglio */}
-          {investments.length > 0 && (
-            <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg">
-              <CardHeader>
-                <CardTitle>Riepilogo Portafoglio</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="flex items-center gap-2">
-                    <Target className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                    <div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">Investito</div>
-                      <div className="font-semibold text-gray-900 dark:text-white">€{totalInvested.toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Activity className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                    <div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">Corrente</div>
-                      <div className="font-semibold text-gray-900 dark:text-white">€{totalCurrent.toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {totalPnL >= 0 ? <TrendingUp className="w-5 h-5 text-green-500 dark:text-green-400" /> : <TrendingDown className="w-5 h-5 text-red-500 dark:text-red-400" />}
-                    <div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">P&L</div>
-                      <div className={`font-semibold ${totalPnL>=0? 'text-green-600':'text-red-600'}`}>{totalPnL>=0? '+' : ''}€{totalPnL.toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {totalPnLPercentage >= 0 ? <TrendingUp className="w-5 h-5 text-green-500 dark:text-green-400" /> : <TrendingDown className="w-5 h-5 text-red-500 dark:text-red-400" />}
-                    <div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">Perf %</div>
-                      <div className={`font-semibold ${totalPnLPercentage>=0? 'text-green-600':'text-red-600'}`}>{totalPnLPercentage>=0? '+' : ''}{totalPnLPercentage.toFixed(2)}%</div>
-                    </div>
+        {/* Riepilogo Portafoglio */}
+        {investments.length > 0 && (
+          <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg">
+            <CardHeader>
+              <CardTitle>Riepilogo Portafoglio</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="flex items-center gap-2">
+                  <Target className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                  <div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Investito</div>
+                    <div className="font-semibold text-gray-900 dark:text-white">€{totalInvested.toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Tabs Section */}
-          <Tabs value={selectedTab} onValueChange={val => setSelectedTab(val as 'portfolio'|'analytics')} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 lg:grid-cols-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg">
-              <TabsTrigger value="portfolio" className="flex items-center gap-2">
-                <Target className="w-4 h-4" />
-                Portafoglio
-              </TabsTrigger>
-              <TabsTrigger value="analytics" className="flex items-center gap-2">
-                <BarChart3 className="w-4 h-4" />
-                Analisi
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="portfolio" className="space-y-6 mt-6">
-              <div className="w-full">
-                <InvestmentsList 
-                  investments={investments} 
-                  onInvestmentDeleted={loadInvestments}
-                />
+                <div className="flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                  <div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Corrente</div>
+                    <div className="font-semibold text-gray-900 dark:text-white">€{totalCurrent.toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {totalPnL >= 0 ? <TrendingUp className="w-5 h-5 text-green-500 dark:text-green-400" /> : <TrendingDown className="w-5 h-5 text-red-500 dark:text-red-400" />}
+                  <div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">P&L</div>
+                    <div className={`font-semibold ${totalPnL>=0? 'text-green-600':'text-red-600'}`}>{totalPnL>=0? '+' : ''}€{totalPnL.toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {totalPnLPercentage >= 0 ? <TrendingUp className="w-5 h-5 text-green-500 dark:text-green-400" /> : <TrendingDown className="w-5 h-5 text-red-500 dark:text-red-400" />}
+                  <div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Perf %</div>
+                    <div className={`font-semibold ${totalPnLPercentage>=0? 'text-green-600':'text-red-600'}`}>{totalPnLPercentage>=0? '+' : ''}{totalPnLPercentage.toFixed(2)}%</div>
+                  </div>
+                </div>
               </div>
-            </TabsContent>
+            </CardContent>
+          </Card>
+        )}
 
-            <TabsContent value="analytics" className="space-y-6 mt-6">
-              <Card className="bg-gradient-to-r from-blue-500/10 to-green-500/10 dark:from-blue-900/20 dark:to-green-900/20 backdrop-blur-sm border-0 shadow-lg">
-                <CardHeader className="pb-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-500/20 rounded-lg">
-                        <PieChart className="w-6 h-6 text-blue-600" />
+        {/* Tabs Section */}
+        <Tabs value={selectedTab} onValueChange={val => setSelectedTab(val as 'portfolio'|'analytics')} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg">
+            <TabsTrigger value="portfolio" className="flex items-center gap-2">
+              <Target className="w-4 h-4" />
+              Portafoglio
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" />
+              Analisi
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="portfolio" className="space-y-6 mt-6">
+            <div className="w-full">
+              <InvestmentsList 
+                investments={investments} 
+                onInvestmentDeleted={loadInvestments}
+              />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="analytics" className="space-y-6 mt-6">
+            <Card className="bg-gradient-to-r from-blue-500/10 to-green-500/10 dark:from-blue-900/20 dark:to-green-900/20 backdrop-blur-sm border-0 shadow-lg">
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-500/20 rounded-lg">
+                      <PieChart className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-xl text-gray-900 dark:text-white">
+                        Analisi Portafoglio AI
+                      </CardTitle>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        Insights intelligenti sui tuoi investimenti
+                      </p>
+                    </div>
+                  </div>
+                  {investments.length > 0 && (
+                    <div className="text-right">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {investments.length} asset in portafoglio
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {investments.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="space-y-4">
+                      <div className="mx-auto w-16 h-16 bg-gradient-to-r from-blue-500/20 to-green-500/20 rounded-full flex items-center justify-center">
+                        <Target className="w-8 h-8 text-blue-600" />
                       </div>
                       <div>
-                        <CardTitle className="text-xl text-gray-900 dark:text-white">
-                          Analisi Portafoglio AI
-                        </CardTitle>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                          Insights intelligenti sui tuoi investimenti
+                        <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                          Nessun investimento nel portafoglio
+                        </h3>
+                        <p className="text-gray-500 dark:text-gray-400 mt-1">
+                          Aggiungi alcuni investimenti per vedere l'analisi del portafoglio
                         </p>
                       </div>
                     </div>
-                    {investments.length > 0 && (
-                      <div className="text-right">
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {investments.length} asset in portafoglio
-                        </p>
+                  </div>
+                ) : isAnalyzing ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="text-center space-y-4">
+                      <div className="flex items-center justify-center space-x-2">
+                        <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce"></div>
+                        <div className="w-3 h-3 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                        <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                      </div>
+                      <p className="text-gray-600 dark:text-gray-400">
+                        Analisi del portafoglio in corso...
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="p-6 bg-white/50 dark:bg-gray-800/50 rounded-lg border border-white/20">
+                      <div className="prose prose-sm max-w-none dark:prose-invert">
+                        <div className="whitespace-pre-wrap leading-relaxed">
+                          {analysis || 'Nessuna analisi disponibile per il tuo portafoglio.'}
+                        </div>
+                      </div>
+                    </div>
+                    {analysis && (
+                      <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                        <PieChart className="w-3 h-3" />
+                        <span>Analisi generata tramite intelligenza artificiale</span>
                       </div>
                     )}
                   </div>
-                </CardHeader>
-                <CardContent>
-                  {investments.length === 0 ? (
-                    <div className="text-center py-12">
-                      <div className="space-y-4">
-                        <div className="mx-auto w-16 h-16 bg-gradient-to-r from-blue-500/20 to-green-500/20 rounded-full flex items-center justify-center">
-                          <Target className="w-8 h-8 text-blue-600" />
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-                            Nessun investimento nel portafoglio
-                          </h3>
-                          <p className="text-gray-500 dark:text-gray-400 mt-1">
-                            Aggiungi alcuni investimenti per vedere l'analisi del portafoglio
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ) : isAnalyzing ? (
-                    <div className="flex items-center justify-center py-12">
-                      <div className="text-center space-y-4">
-                        <div className="flex items-center justify-center space-x-2">
-                          <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce"></div>
-                          <div className="w-3 h-3 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                          <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                        </div>
-                        <p className="text-gray-600 dark:text-gray-400">
-                          Analisi del portafoglio in corso...
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="p-6 bg-white/50 dark:bg-gray-800/50 rounded-lg border border-white/20">
-                        <div className="prose prose-sm max-w-none dark:prose-invert">
-                          <div className="whitespace-pre-wrap leading-relaxed">
-                            {analysis || 'Nessuna analisi disponibile per il tuo portafoglio.'}
-                          </div>
-                        </div>
-                      </div>
-                      {analysis && (
-                        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                          <PieChart className="w-3 h-3" />
-                          <span>Analisi generata tramite intelligenza artificiale</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </main>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-2 z-50 overflow-hidden">
-        <Navigation />
-      </nav>
-    </div>
+    </Layout>
   );
 };
 
