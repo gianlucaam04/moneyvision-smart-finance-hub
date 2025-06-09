@@ -1,3 +1,4 @@
+
 import React, { ReactNode } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -12,8 +13,14 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ title, icon, className }) => {
-  const { user, logout } = useAuth();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
+
+  const getUserDisplayName = () => {
+    if (user?.name) return user.name;
+    if (user?.email) return user.email.split('@')[0];
+    return 'Utente';
+  };
 
   return (
     <header className={`bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 py-3 ${className || ''}`}>
@@ -40,7 +47,7 @@ const Header: React.FC<HeaderProps> = ({ title, icon, className }) => {
               <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                 <Avatar className="h-10 w-10">
                   <AvatarFallback className="bg-finance-blue text-white">
-                    {user?.name?.charAt(0) || 'U'}
+                    {getUserDisplayName().charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
               </Button>
@@ -59,7 +66,7 @@ const Header: React.FC<HeaderProps> = ({ title, icon, className }) => {
                 Impostazioni
               </DropdownMenuItem>
               <DropdownMenuItem 
-                onClick={logout}
+                onClick={signOut}
                 className="cursor-pointer text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
               >
                 Esci

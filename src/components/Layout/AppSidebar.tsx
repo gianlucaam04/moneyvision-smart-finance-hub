@@ -81,20 +81,27 @@ const secondaryNavItems = [
 ];
 
 const AppSidebar: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, signOut } = useAuth();
   const location = useLocation();
 
   const handleLogout = async () => {
-    await logout();
+    await signOut();
   };
 
-  const getUserInitials = (name: string) => {
+  const getUserInitials = (name: string | undefined) => {
+    if (!name) return 'U';
     return name
       .split(' ')
       .map(n => n[0])
       .join('')
       .toUpperCase()
       .slice(0, 2);
+  };
+
+  const getUserDisplayName = () => {
+    if (user?.name) return user.name;
+    if (user?.email) return user.email.split('@')[0];
+    return 'Utente';
   };
 
   return (
@@ -228,7 +235,7 @@ const AppSidebar: React.FC = () => {
               </Avatar>
               <div className="flex-1 group-data-[collapsible=icon]:hidden">
                 <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                  {user.name}
+                  {getUserDisplayName()}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                   {user.email}

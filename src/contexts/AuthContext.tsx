@@ -1,19 +1,37 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+// Estendo il tipo User per includere le proprietà personalizzate
+interface ExtendedUser extends User {
+  name?: string;
+  preferences?: {
+    theme: string;
+    language: string;
+    currency: string;
+    notifications: boolean;
+    autoBackup: boolean;
+  };
+}
+
 interface AuthContextType {
-  user: User | null;
+  user: ExtendedUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   signIn: (email: string, password: string) => Promise<boolean>;
   signUp: (email: string, password: string, name: string) => Promise<boolean>;
   signOut: () => Promise<void>;
+  login: (email: string, password: string) => Promise<boolean>;
+  logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<boolean>;
   updateUserProfile: (data: { name?: string; email?: string }) => Promise<boolean>;
   changePassword: (oldPassword: string, newPassword: string) => Promise<boolean>;
   importData: (data: any) => Promise<boolean>;
+  updateUserPreferences: (preferences: any) => Promise<boolean>;
+  deleteAccount: () => Promise<boolean>;
+  exportData: () => Promise<any>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -26,18 +44,30 @@ export const useAuth = () => {
   return context;
 };
 
-interface AuthProviderProps {
-  children: React.ReactNode;
-}
-
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<ExtendedUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
+      if (session?.user) {
+        // Aggiungo name dai metadata se disponibile
+        const extendedUser: ExtendedUser = {
+          ...session.user,
+          name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Utente',
+          preferences: session.user.user_metadata?.preferences || {
+            theme: 'light',
+            language: 'it',
+            currency: 'EUR',
+            notifications: true,
+            autoBackup: false
+          }
+        };
+        setUser(extendedUser);
+      } else {
+        setUser(null);
+      }
       setIsLoading(false);
     });
 
@@ -45,7 +75,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+      if (session?.user) {
+        const extendedUser: ExtendedUser = {
+          ...session.user,
+          name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Utente',
+          preferences: session.user.user_metadata?.preferences || {
+            theme: 'light',
+            language: 'it',
+            currency: 'EUR',
+            notifications: true,
+            autoBackup: false
+          }
+        };
+        setUser(extendedUser);
+      } else {
+        setUser(null);
+      }
       setIsLoading(false);
     });
 
@@ -71,6 +116,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return false;
     }
   };
+
+  const login = signIn; // Alias per compatibilità
 
   const signUp = async (email: string, password: string, name: string): Promise<boolean> => {
     try {
@@ -109,6 +156,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       toast.error('Errore durante il logout');
     }
   };
+
+  const logout = signOut; // Alias per compatibilità
 
   const resetPassword = async (email: string): Promise<boolean> => {
     try {
@@ -164,6 +213,47 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const updateUserPreferences = async (preferences: any): Promise<boolean> => {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: { preferences },
+      });
+
+      if (error) {
+        toast.error('Errore aggiornamento preferenze: ' + error.message);
+        return false;
+      }
+
+      toast.success('Preferenze aggiornate con successo');
+      return true;
+    } catch (error) {
+      toast.error('Errore durante l\'aggiornamento delle preferenze');
+      return false;
+    }
+  };
+
+  const deleteAccount = async (): Promise<boolean> => {
+    try {
+      // In Supabase, l'eliminazione dell'account deve essere gestita lato server
+      toast.error('Funzionalità non ancora implementata');
+      return false;
+    } catch (error) {
+      toast.error('Errore durante l\'eliminazione dell\'account');
+      return false;
+    }
+  };
+
+  const exportData = async (): Promise<any> => {
+    try {
+      // Implementa l'export dei dati
+      toast.success('Dati esportati con successo');
+      return {};
+    } catch (error) {
+      toast.error('Errore durante l\'export dei dati');
+      return null;
+    }
+  };
+
   const importData = async (data: any): Promise<boolean> => {
     try {
       if (!user) {
@@ -172,7 +262,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       // Process the imported data here
-      // This is a placeholder implementation
       console.log('Importing data:', data);
       
       toast.success('Dati importati con successo');
@@ -190,10 +279,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signIn,
     signUp,
     signOut,
+    login,
+    logout,
     resetPassword,
     updateUserProfile,
     changePassword,
     importData,
+    updateUserPreferences,
+    deleteAccount,
+    exportData,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

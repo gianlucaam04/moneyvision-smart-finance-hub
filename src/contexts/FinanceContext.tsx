@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { Transaction, Category, SavingsGoal } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
@@ -9,6 +8,7 @@ interface FinanceContextType {
   transactions: Transaction[];
   categories: Category[];
   goals: SavingsGoal[];
+  savingsGoals: SavingsGoal[];
   summary: {
     totalIncome: number;
     totalExpenses: number;
@@ -16,7 +16,6 @@ interface FinanceContextType {
     monthlyTrend: 'up' | 'down' | 'stable';
     budgetUsage: number;
   };
-  savingsGoals: SavingsGoal[];
   addTransaction: (transaction: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateTransaction: (id: string, updates: Partial<Transaction>) => void;
   deleteTransaction: (id: string) => void;
@@ -26,6 +25,10 @@ interface FinanceContextType {
   addGoal: (goal: Omit<SavingsGoal, 'id'>) => void;
   updateGoal: (id: string, updates: Partial<SavingsGoal>) => void;
   deleteGoal: (id: string) => void;
+  addSavingsGoal: (goal: Omit<SavingsGoal, 'id'>) => void;
+  editSavingsGoal: (id: string, updates: Partial<SavingsGoal>) => void;
+  deleteSavingsGoal: (id: string) => void;
+  updateSavingsGoal: (id: string, updates: Partial<SavingsGoal>) => void;
   refreshData: () => Promise<void>;
 }
 
@@ -61,8 +64,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       date: item.date,
       note: item.note || '',
       createdAt: item.created_at,
-      updatedAt: item.updated_at,
-      userId: item.user_id
+      updatedAt: item.updated_at
     }));
   };
 
@@ -73,8 +75,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       color: item.color,
       icon: item.icon,
       type: item.type as 'income' | 'expense' | 'both',
-      budget: item.budget || 0,
-      userId: item.user_id
+      budget: item.budget || 0
     }));
   };
 
@@ -87,8 +88,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       currentAmount: item.current_amount,
       deadline: item.deadline,
       color: item.color,
-      isCompleted: item.is_completed,
-      userId: item.user_id
+      isCompleted: item.is_completed
     }));
   };
 
@@ -152,11 +152,15 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const balance = totalIncome - totalExpenses;
     const budgetUsage = totalExpenses > 0 ? (totalExpenses / (totalIncome || 1)) * 100 : 0;
 
+    let monthlyTrend: 'up' | 'down' | 'stable' = 'stable';
+    if (balance > 0) monthlyTrend = 'up';
+    else if (balance < 0) monthlyTrend = 'down';
+
     return {
       totalIncome,
       totalExpenses,
       balance,
-      monthlyTrend: balance > 0 ? 'up' : balance < 0 ? 'down' : 'stable' as const,
+      monthlyTrend,
       budgetUsage
     };
   };
@@ -186,8 +190,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         ...transaction,
         id: dbTransaction.id,
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        userId: user.id
+        updatedAt: new Date().toISOString()
       };
 
       setTransactions(prevTransactions => [newTransaction, ...prevTransactions]);
@@ -269,8 +272,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       const newCategory: Category = {
         ...category,
-        id: dbCategory.id,
-        userId: user.id
+        id: dbCategory.id
       };
 
       setCategories(prevCategories => [...prevCategories, newCategory]);
@@ -349,8 +351,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       const newGoal: SavingsGoal = {
         ...goal,
-        id: dbGoal.id,
-        userId: user.id
+        id: dbGoal.id
       };
 
       setGoals(prevGoals => [...prevGoals, newGoal]);
@@ -407,6 +408,69 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  const addSavingsGoal = addGoal;
+  const editSavingsGoal = async (id: string, updates: Partial<SavingsGoal>) => {
+    try {
+      const dbUpdates: any = {};
+      if (updates.title !== undefined) dbUpdates.title = updates.title;
+      if (updates.description !== undefined) dbUpdates.description = updates.description;
+      if (updates.targetAmount !== undefined) dbUpdates.target_amount = updates.targetAmount;
+      if (updates.currentAmount !== undefined) dbUpdates.current_amount = updates.currentAmount;
+      if (updates.deadline !== undefined) dbUpdates.deadline = updates.deadline;
+      if (updates.color !== undefined) dbUpdates.color = updates.color;
+      if (updates.isCompleted !== undefined) dbUpdates.is_completed = updates.isCompleted;
+      dbUpdates.updated_at = new Date().toISOString();
+
+      const { error } = await supabase
+        .from('savings_goals')
+        .update(dbUpdates)
+        .eq('id', id)
+        .eq('user_id', user?.id);
+
+      if (error) throw error;
+
+      setGoals(prevGoals =>
+        prevGoals.map(goal =>
+          goal.id === id ? { ...goal, ...updates } : goal
+        )
+      );
+    } catch (error) {
+      console.error("Failed to update goal:", error);
+    }
+  };
+
+  const deleteSavingsGoal = deleteGoal;
+
+  const updateSavingsGoal = async (id: string, updates: Partial<SavingsGoal>) => {
+    try {
+      const dbUpdates: any = {};
+      if (updates.title !== undefined) dbUpdates.title = updates.title;
+      if (updates.description !== undefined) dbUpdates.description = updates.description;
+      if (updates.targetAmount !== undefined) dbUpdates.target_amount = updates.targetAmount;
+      if (updates.currentAmount !== undefined) dbUpdates.current_amount = updates.currentAmount;
+      if (updates.deadline !== undefined) dbUpdates.deadline = updates.deadline;
+      if (updates.color !== undefined) dbUpdates.color = updates.color;
+      if (updates.isCompleted !== undefined) dbUpdates.is_completed = updates.isCompleted;
+      dbUpdates.updated_at = new Date().toISOString();
+
+      const { error } = await supabase
+        .from('savings_goals')
+        .update(dbUpdates)
+        .eq('id', id)
+        .eq('user_id', user?.id);
+
+      if (error) throw error;
+
+      setGoals(prevGoals =>
+        prevGoals.map(goal =>
+          goal.id === id ? { ...goal, ...updates } : goal
+        )
+      );
+    } catch (error) {
+      console.error("Failed to update goal:", error);
+    }
+  };
+
   const refreshData = async () => {
     if (!user) return;
     
@@ -455,8 +519,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     transactions,
     categories,
     goals,
+    savingsGoals: goals,
     summary,
-    savingsGoals: goals, // Alias for compatibility
     addTransaction,
     updateTransaction,
     deleteTransaction,
@@ -466,6 +530,10 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     addGoal,
     updateGoal,
     deleteGoal,
+    addSavingsGoal,
+    editSavingsGoal,
+    deleteSavingsGoal,
+    updateSavingsGoal,
     refreshData
   };
 
