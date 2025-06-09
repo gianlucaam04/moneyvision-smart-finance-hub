@@ -1,6 +1,6 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import type { Archive } from '@/db/schema';
+import JSZip from 'jszip';
 
 export interface ArchiveData {
   transactions: any[];
@@ -54,8 +54,11 @@ export const archivesService = {
       throw new Error('Impossibile recuperare i dati dell\'archivio');
     }
 
-    // I dati sono già in formato JSON nel database, non serve decomprimere
-    return data.file_data as unknown as ArchiveData;
+    // Decomprimi base64 zip in JSON
+    const zip = new JSZip();
+    const loaded = await zip.loadAsync(data.file_data, { base64: true });
+    const jsonStr = await loaded.file('archive.json')!.async('string');
+    return JSON.parse(jsonStr) as ArchiveData;
   },
 
   // Crea un nuovo archivio per dati più vecchi di 3 anni
@@ -78,12 +81,16 @@ export const archivesService = {
       archive_reason: 'automatic_3_year_cleanup'
     };
 
+    // Comprimi in zip il JSON dell'archivio
+    const zip = new JSZip();
+    zip.file('archive.json', JSON.stringify(archiveData));
+    const zipContentBase64 = await zip.generateAsync({ type: 'base64' });
     const { error } = await supabase
       .from('archives')
       .insert({
         user_id: user.id,
-        file_name: `archive_${dateRangeStart}_to_${dateRangeEnd}`,
-        file_data: archiveData as unknown as any,
+        file_name: `archive_${dateRangeStart}_to_${dateRangeEnd}.zip`,
+        file_data: zipContentBase64,
         archive_type: 'auto_archive',
         date_range_start: dateRangeStart,
         date_range_end: dateRangeEnd

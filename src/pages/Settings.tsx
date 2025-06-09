@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Layout from '@/components/Layout/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -157,44 +156,34 @@ const Settings: React.FC = () => {
       let importedCount = 0;
       let archivedCount = 0;
 
-      // Importa transazioni
+      // Raggruppa e archivia transazioni oltre 3 anni
       if (data.transactions && Array.isArray(data.transactions)) {
-        for (const transaction of data.transactions) {
-          const transactionDate = new Date(transaction.date);
-          const now = new Date();
-          const fiveYearsAgo = new Date(now.getFullYear() - 5, now.getMonth(), now.getDate());
+        const now = new Date();
+        const threshold = new Date(now.getFullYear() - 3, now.getMonth(), now.getDate());
+        const historical = data.transactions.filter(tx => new Date(tx.date) < threshold);
+        const recent = data.transactions.filter(tx => new Date(tx.date) >= threshold);
 
-          if (transactionDate < fiveYearsAgo) {
-            // Archivia transazioni più vecchie di 5 anni
-            const year = transactionDate.getFullYear();
-            const yearStart = `${year}-01-01`;
-            const yearEnd = `${year}-12-31`;
-            
-            try {
-              await archivesService.createArchive(
-                [transaction],
-                [],
-                yearStart,
-                yearEnd
-              );
-              archivedCount++;
-            } catch (archiveError) {
-              console.error('Error archiving old transaction:', archiveError);
-            }
-          } else {
-            // Importa transazioni recenti
-            const { error } = await supabase
-              .from('transactions')
-              .insert({
-                ...transaction,
-                user_id: user.id,
-                id: undefined
-              });
-            
-            if (!error) {
-              importedCount++;
-            }
+        if (historical.length > 0) {
+          const dates = historical.map(tx => new Date(tx.date)).sort((a, b) => a.getTime() - b.getTime());
+          const dateRangeStart = dates[0].toISOString().split('T')[0];
+          const dateRangeEnd = dates[dates.length - 1].toISOString().split('T')[0];
+          try {
+            await archivesService.createArchive(historical, data.categories || [], dateRangeStart, dateRangeEnd);
+            archivedCount = 1;
+          } catch (archiveError) {
+            console.error('Error archiving historical data:', archiveError);
           }
+        }
+
+        for (const transaction of recent) {
+          const { error } = await supabase
+            .from('transactions')
+            .insert({
+              ...transaction,
+              user_id: user.id,
+              id: undefined
+            });
+          if (!error) importedCount++;
         }
       }
 
@@ -214,18 +203,22 @@ const Settings: React.FC = () => {
       // Importa obiettivi
       if (data.goals && Array.isArray(data.goals)) {
         for (const goal of data.goals) {
-          await supabase
+          const { data: insertedGoalData, error: goalError } = await supabase
             .from('savings_goals')
             .insert({
               title: goal.title,
-              description: goal.description,
-              target_amount: goal.targetAmount,
-              current_amount: goal.currentAmount,
+              description: goal.description ?? null,
+              target_amount: goal.target_amount,
+              current_amount: goal.current_amount,
               deadline: goal.deadline,
               color: goal.color,
-              is_completed: goal.isCompleted,
+              is_completed: goal.is_completed,
               user_id: user.id
             });
+          if (goalError) {
+            console.error('Errore import obiettivi:', goalError);
+            toast.error(`Errore import goal: ${goalError.message}`);
+          }
         }
       }
 
@@ -488,7 +481,7 @@ const Settings: React.FC = () => {
                       📤 Importa Dati
                     </Label>
                     <p className="text-xs text-gray-500 mt-1">
-                      I dati più vecchi di 5 anni saranno archiviati automaticamente
+                      I dati più vecchi di 3 anni saranno archiviati automaticamente
                     </p>
                     <Input
                       id="import"
