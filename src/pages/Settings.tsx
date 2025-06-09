@@ -7,24 +7,23 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Separator } from '@/components/ui/separator';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFinance } from '@/contexts/FinanceContext';
-import { Settings as SettingsIcon, Download, Upload, Trash2, Save, Database } from 'lucide-react';
+import { Settings as SettingsIcon, Download, Upload, Trash2, Save, Database, User, Palette, Bell, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { archivesService } from '@/services/archivesService';
 
 const Settings: React.FC = () => {
   const { user, updateUserPreferences, signOut } = useAuth();
-  const { refreshData, transactions, categories } = useFinance();
+  const { refreshData } = useFinance();
   const [isImporting, setIsImporting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isClearingData, setIsClearingData] = useState(false);
   const [showClearDialog, setShowClearDialog] = useState(false);
 
-  // Default preferences se non disponibili
   const defaultPreferences = {
     theme: 'light',
     language: 'it',
@@ -58,24 +57,23 @@ const Settings: React.FC = () => {
       const text = await file.text();
       const data = JSON.parse(text);
       
-      console.log('Importing data:', data);
-
       if (!user) {
         toast.error('Utente non autenticato');
         return;
       }
 
-      // Importa transazioni se presenti
+      let importedCount = 0;
+      let archivedCount = 0;
+
+      // Importa transazioni
       if (data.transactions && Array.isArray(data.transactions)) {
         for (const transaction of data.transactions) {
           const transactionDate = new Date(transaction.date);
           const now = new Date();
           const fiveYearsAgo = new Date(now.getFullYear() - 5, now.getMonth(), now.getDate());
 
-          // Se la transazione è più vecchia di 5 anni, archiviala
           if (transactionDate < fiveYearsAgo) {
-            console.log('Transaction older than 5 years, archiving...');
-            // Raggruppa per anno per l'archiviazione
+            // Archivia transazioni più vecchie di 5 anni
             const year = transactionDate.getFullYear();
             const yearStart = `${year}-01-01`;
             const yearEnd = `${year}-12-31`;
@@ -87,53 +85,68 @@ const Settings: React.FC = () => {
                 yearStart,
                 yearEnd
               );
+              archivedCount++;
             } catch (archiveError) {
               console.error('Error archiving old transaction:', archiveError);
             }
           } else {
-            // Importa normalmente le transazioni recenti
+            // Importa transazioni recenti
             const { error } = await supabase
               .from('transactions')
               .insert({
                 ...transaction,
                 user_id: user.id,
-                id: undefined // Lascia che il DB generi un nuovo ID
+                id: undefined
               });
             
-            if (error) {
-              console.error('Error importing transaction:', error);
+            if (!error) {
+              importedCount++;
             }
           }
         }
       }
 
-      // Importa categorie se presenti
+      // Importa categorie
       if (data.categories && Array.isArray(data.categories)) {
         for (const category of data.categories) {
-          const { error } = await supabase
+          await supabase
             .from('categories')
             .insert({
               ...category,
               user_id: user.id,
-              id: undefined // Lascia che il DB generi un nuovo ID
+              id: undefined
             });
-          
-          if (error) {
-            console.error('Error importing category:', error);
-          }
         }
       }
 
-      // Refresh dei dati dopo l'importazione
+      // Importa obiettivi
+      if (data.goals && Array.isArray(data.goals)) {
+        for (const goal of data.goals) {
+          await supabase
+            .from('savings_goals')
+            .insert({
+              title: goal.title,
+              description: goal.description,
+              target_amount: goal.targetAmount,
+              current_amount: goal.currentAmount,
+              deadline: goal.deadline,
+              color: goal.color,
+              is_completed: goal.isCompleted,
+              user_id: user.id
+            });
+        }
+      }
+
       await refreshData();
       
-      toast.success('Dati importati con successo. I dati più vecchi di 5 anni sono stati archiviati automaticamente.');
+      toast.success(
+        `Importazione completata! ${importedCount} elementi importati, ${archivedCount} elementi archiviati.`
+      );
     } catch (error) {
       console.error('Import error:', error);
       toast.error('Errore durante l\'importazione dei dati');
     } finally {
       setIsImporting(false);
-      // Reset input file
       if (event.target) {
         event.target.value = '';
       }
@@ -148,27 +161,20 @@ const Settings: React.FC = () => {
 
     setIsExporting(true);
     try {
-      // Esporta tutti i dati dell'utente
-      const { data: transactionsData, error: transactionsError } = await supabase
+      const { data: transactionsData } = await supabase
         .from('transactions')
         .select('*')
         .eq('user_id', user.id);
 
-      if (transactionsError) throw transactionsError;
-
-      const { data: categoriesData, error: categoriesError } = await supabase
+      const { data: categoriesData } = await supabase
         .from('categories')
         .select('*')
         .eq('user_id', user.id);
 
-      if (categoriesError) throw categoriesError;
-
-      const { data: goalsData, error: goalsError } = await supabase
+      const { data: goalsData } = await supabase
         .from('savings_goals')
         .select('*')
         .eq('user_id', user.id);
-
-      if (goalsError) throw goalsError;
 
       const exportData = {
         transactions: transactionsData || [],
@@ -178,7 +184,6 @@ const Settings: React.FC = () => {
         version: '1.0'
       };
 
-      // Crea e scarica il file
       const dataStr = JSON.stringify(exportData, null, 2);
       const dataBlob = new Blob([dataStr], { type: 'application/json' });
       const url = URL.createObjectURL(dataBlob);
@@ -208,38 +213,15 @@ const Settings: React.FC = () => {
 
     setIsClearingData(true);
     try {
-      // Elimina tutti i dati dell'utente (ma non l'utente stesso)
-      const { error: transactionsError } = await supabase
-        .from('transactions')
-        .delete()
-        .eq('user_id', user.id);
+      // Elimina tutti i dati dell'utente
+      await Promise.all([
+        supabase.from('transactions').delete().eq('user_id', user.id),
+        supabase.from('categories').delete().eq('user_id', user.id),
+        supabase.from('savings_goals').delete().eq('user_id', user.id),
+        supabase.from('archives').delete().eq('user_id', user.id)
+      ]);
 
-      if (transactionsError) throw transactionsError;
-
-      const { error: categoriesError } = await supabase
-        .from('categories')
-        .delete()
-        .eq('user_id', user.id);
-
-      if (categoriesError) throw categoriesError;
-
-      const { error: goalsError } = await supabase
-        .from('savings_goals')
-        .delete()
-        .eq('user_id', user.id);
-
-      if (goalsError) throw goalsError;
-
-      const { error: archivesError } = await supabase
-        .from('archives')
-        .delete()
-        .eq('user_id', user.id);
-
-      if (archivesError) throw archivesError;
-
-      // Refresh dei dati
       await refreshData();
-      
       toast.success('Tutti i dati sono stati eliminati con successo');
       setShowClearDialog(false);
     } catch (error) {
@@ -252,82 +234,134 @@ const Settings: React.FC = () => {
 
   return (
     <Layout>
-      <div className="space-y-6 max-w-4xl mx-auto p-4">
+      <div className="space-y-8 max-w-4xl mx-auto">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Impostazioni</h1>
-            <p className="text-gray-600 dark:text-gray-400">Configura le tue preferenze</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+              Impostazioni
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-1">
+              Configura le tue preferenze e gestisci i tuoi dati
+            </p>
           </div>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
-          {/* Preferences Card */}
-          <Card className="w-full">
+        <div className="grid gap-8 lg:grid-cols-2">
+          {/* Preferenze Utente */}
+          <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <SettingsIcon className="w-5 h-5" />
-                Preferenze
+                <User className="w-5 h-5 text-blue-600" />
+                Profilo Utente
               </CardTitle>
-              <CardDescription>Personalizza l'esperienza dell'app</CardDescription>
+              <CardDescription>
+                Informazioni del tuo account
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
+                <Label>Email</Label>
+                <Input value={user?.email || ''} disabled className="bg-gray-50" />
+              </div>
+              <div className="space-y-2">
+                <Label>Data di registrazione</Label>
+                <Input 
+                  value={user?.created_at ? new Date(user.created_at).toLocaleDateString('it-IT') : ''} 
+                  disabled 
+                  className="bg-gray-50" 
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Preferenze App */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Palette className="w-5 h-5 text-purple-600" />
+                Preferenze App
+              </CardTitle>
+              <CardDescription>
+                Personalizza l'esperienza dell'app
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
                 <Label htmlFor="theme">Tema</Label>
-                <Select value={preferences.theme} onValueChange={(value) => setPreferences({...preferences, theme: value})}>
-                  <SelectTrigger className="w-full">
+                <Select 
+                  value={preferences.theme} 
+                  onValueChange={(value) => setPreferences({...preferences, theme: value})}
+                >
+                  <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="light">Chiaro</SelectItem>
-                    <SelectItem value="dark">Scuro</SelectItem>
-                    <SelectItem value="system">Sistema</SelectItem>
+                    <SelectItem value="light">🌞 Chiaro</SelectItem>
+                    <SelectItem value="dark">🌙 Scuro</SelectItem>
+                    <SelectItem value="system">💻 Sistema</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="language">Lingua</Label>
-                <Select value={preferences.language} onValueChange={(value) => setPreferences({...preferences, language: value})}>
-                  <SelectTrigger className="w-full">
+                <Select 
+                  value={preferences.language} 
+                  onValueChange={(value) => setPreferences({...preferences, language: value})}
+                >
+                  <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="it">Italiano</SelectItem>
-                    <SelectItem value="en">English</SelectItem>
+                    <SelectItem value="it">🇮🇹 Italiano</SelectItem>
+                    <SelectItem value="en">🇬🇧 English</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="currency">Valuta</Label>
-                <Select value={preferences.currency} onValueChange={(value) => setPreferences({...preferences, currency: value})}>
-                  <SelectTrigger className="w-full">
+                <Select 
+                  value={preferences.currency} 
+                  onValueChange={(value) => setPreferences({...preferences, currency: value})}
+                >
+                  <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="EUR">Euro (€)</SelectItem>
-                    <SelectItem value="USD">Dollaro ($)</SelectItem>
-                    <SelectItem value="GBP">Sterlina (£)</SelectItem>
+                    <SelectItem value="EUR">€ Euro</SelectItem>
+                    <SelectItem value="USD">$ Dollaro</SelectItem>
+                    <SelectItem value="GBP">£ Sterlina</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="flex items-center justify-between py-2">
-                <Label htmlFor="notifications">Notifiche</Label>
-                <Switch
-                  id="notifications"
-                  checked={preferences.notifications}
-                  onCheckedChange={(checked) => setPreferences({...preferences, notifications: checked})}
-                />
-              </div>
+              <Separator />
 
-              <div className="flex items-center justify-between py-2">
-                <Label htmlFor="autoBackup">Backup automatico</Label>
-                <Switch
-                  id="autoBackup"
-                  checked={preferences.autoBackup}
-                  onCheckedChange={(checked) => setPreferences({...preferences, autoBackup: checked})}
-                />
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Bell className="w-4 h-4 text-yellow-600" />
+                    <Label htmlFor="notifications">Notifiche</Label>
+                  </div>
+                  <Switch
+                    id="notifications"
+                    checked={preferences.notifications}
+                    onCheckedChange={(checked) => setPreferences({...preferences, notifications: checked})}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Shield className="w-4 h-4 text-green-600" />
+                    <Label htmlFor="autoBackup">Backup automatico</Label>
+                  </div>
+                  <Switch
+                    id="autoBackup"
+                    checked={preferences.autoBackup}
+                    onCheckedChange={(checked) => setPreferences({...preferences, autoBackup: checked})}
+                  />
+                </div>
               </div>
 
               <Button onClick={handleSavePreferences} className="w-full">
@@ -337,65 +371,93 @@ const Settings: React.FC = () => {
             </CardContent>
           </Card>
 
-          {/* Data Management Card */}
-          <Card className="w-full">
+          {/* Gestione Dati */}
+          <Card className="lg:col-span-2">
             <CardHeader>
-              <CardTitle>Gestione Dati</CardTitle>
-              <CardDescription>Importa, esporta e gestisci i tuoi dati</CardDescription>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="w-5 h-5 text-indigo-600" />
+                Gestione Dati
+              </CardTitle>
+              <CardDescription>
+                Importa, esporta e gestisci i tuoi dati finanziari
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="import">Importa Dati</Label>
-                <Input
-                  id="import"
-                  type="file"
-                  accept=".json"
-                  onChange={handleImportData}
-                  disabled={isImporting}
-                  className="w-full"
-                />
-                {isImporting && <p className="text-sm text-gray-500">Importazione in corso...</p>}
-                <p className="text-xs text-gray-500">
-                  I dati più vecchi di 5 anni verranno automaticamente archiviati
-                </p>
-              </div>
+            <CardContent className="space-y-6">
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="import" className="text-sm font-medium">
+                      📤 Importa Dati
+                    </Label>
+                    <p className="text-xs text-gray-500 mt-1">
+                      I dati più vecchi di 5 anni saranno archiviati automaticamente
+                    </p>
+                    <Input
+                      id="import"
+                      type="file"
+                      accept=".json"
+                      onChange={handleImportData}
+                      disabled={isImporting}
+                      className="mt-2"
+                    />
+                    {isImporting && (
+                      <p className="text-sm text-blue-600 mt-2">
+                        ⏳ Importazione in corso...
+                      </p>
+                    )}
+                  </div>
 
-              <Button 
-                onClick={handleExportData} 
-                variant="outline" 
-                className="w-full"
-                disabled={isExporting}
-              >
-                <Download className="w-4 h-4 mr-2" />
-                {isExporting ? 'Esportazione...' : 'Esporta Dati'}
-              </Button>
+                  <Button 
+                    onClick={handleExportData} 
+                    variant="outline" 
+                    className="w-full"
+                    disabled={isExporting}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    {isExporting ? 'Esportazione...' : '📥 Esporta Dati'}
+                  </Button>
+                </div>
 
-              <Button 
-                onClick={() => setShowClearDialog(true)} 
-                variant="destructive" 
-                className="w-full"
-                disabled={isClearingData}
-              >
-                <Database className="w-4 h-4 mr-2" />
-                Elimina Tutti i Dati
-              </Button>
-
-              <div className="pt-4 border-t">
-                <Button onClick={signOut} variant="outline" className="w-full">
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Logout
-                </Button>
+                <div className="space-y-4">
+                  <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                    <h4 className="font-medium text-red-900 dark:text-red-200 mb-2">
+                      ⚠️ Zona Pericolosa
+                    </h4>
+                    <p className="text-sm text-red-700 dark:text-red-300 mb-4">
+                      Queste azioni sono irreversibili
+                    </p>
+                    
+                    <div className="space-y-2">
+                      <Button 
+                        onClick={() => setShowClearDialog(true)} 
+                        variant="destructive" 
+                        className="w-full"
+                        disabled={isClearingData}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        🗑️ Elimina Tutti i Dati
+                      </Button>
+                      
+                      <Button 
+                        onClick={signOut} 
+                        variant="outline" 
+                        className="w-full border-red-200 text-red-600 hover:bg-red-50"
+                      >
+                        🚪 Logout
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Dialog per conferma eliminazione dati */}
         <ConfirmDialog
           open={showClearDialog}
           onOpenChange={setShowClearDialog}
-          title="Elimina tutti i dati"
-          description="Sei sicuro di voler eliminare tutti i tuoi dati? Questa azione non può essere annullata. Il tuo account utente rimarrà attivo."
+          title="⚠️ Elimina tutti i dati"
+          description="Sei sicuro di voler eliminare tutti i tuoi dati? Questa azione non può essere annullata. Il tuo account rimarrà attivo ma tutti i dati finanziari saranno persi."
           onConfirm={handleClearAllData}
           confirmLabel="Elimina tutto"
           cancelLabel="Annulla"
