@@ -9,36 +9,38 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
 import { useFinance } from '@/contexts/FinanceContext';
-import { Plus, TrendingUp, Target, CreditCard, BarChart3, Calendar, Sparkles, ArrowRight, Activity } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Plus, TrendingUp, Target, BarChart3, Calendar, Sparkles, ArrowRight, Activity, Eye } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { transactions, goals, summary } = useFinance();
+  const isMobile = useIsMobile();
 
   const quickActions = [
     {
       title: 'Nuova Transazione',
-      description: 'Aggiungi entrata o uscita',
       icon: Plus,
       onClick: () => navigate('/transactions'),
-      gradient: 'from-blue-500 to-cyan-500',
-      bgColor: 'bg-blue-50 dark:bg-blue-900/20',
+      color: 'bg-blue-500',
     },
     {
       title: 'Nuovo Obiettivo',
-      description: 'Crea obiettivo di risparmio',
       icon: Target,
       onClick: () => navigate('/goals'),
-      gradient: 'from-green-500 to-emerald-500',
-      bgColor: 'bg-green-50 dark:bg-green-900/20',
+      color: 'bg-green-500',
     },
     {
-      title: 'Visualizza Analisi',
-      description: 'Grafici e statistiche',
+      title: 'Analisi',
       icon: BarChart3,
       onClick: () => navigate('/analytics'),
-      gradient: 'from-purple-500 to-violet-500',
-      bgColor: 'bg-purple-50 dark:bg-purple-900/20',
+      color: 'bg-purple-500',
+    },
+    {
+      title: 'Investimenti',
+      icon: TrendingUp,
+      onClick: () => navigate('/investments'),
+      color: 'bg-orange-500',
     },
   ];
 
@@ -49,33 +51,6 @@ const Dashboard: React.FC = () => {
     const date = new Date(t.date);
     return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
   });
-
-  const stats = [
-    {
-      title: 'Transazioni questo mese',
-      value: thisMonthTransactions.length,
-      icon: CreditCard,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-50 dark:bg-blue-900/20',
-      trend: thisMonthTransactions.length > 0 ? '+' + thisMonthTransactions.length : '0',
-    },
-    {
-      title: 'Obiettivi attivi',
-      value: goals.filter(g => !g.isCompleted).length,
-      icon: Target,
-      color: 'text-green-600',
-      bgColor: 'bg-green-50 dark:bg-green-900/20',
-      trend: goals.filter(g => !g.isCompleted).length > 0 ? 'Attivi' : 'Nessuno',
-    },
-    {
-      title: 'Trend mensile',
-      value: summary.monthlyTrend === 'up' ? '↗️ Positivo' : summary.monthlyTrend === 'down' ? '↘️ Negativo' : '→ Stabile',
-      icon: TrendingUp,
-      color: summary.monthlyTrend === 'up' ? 'text-green-600' : summary.monthlyTrend === 'down' ? 'text-red-600' : 'text-gray-600',
-      bgColor: summary.monthlyTrend === 'up' ? 'bg-green-50 dark:bg-green-900/20' : summary.monthlyTrend === 'down' ? 'bg-red-50 dark:bg-red-900/20' : 'bg-gray-50 dark:bg-gray-900/20',
-      trend: 'Andamento',
-    },
-  ];
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('it-IT', {
@@ -88,6 +63,117 @@ const Dashboard: React.FC = () => {
     .filter(t => t.type === 'expense' && new Date(t.date).toDateString() === new Date().toDateString())
     .reduce((sum, t) => sum + Number(t.amount), 0);
 
+  // Mobile Layout
+  if (isMobile) {
+    return (
+      <Layout>
+        <div className="space-y-4">
+          {/* Mobile Header - Compatto */}
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-4 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-xl font-bold">Ciao! 👋</h1>
+                <p className="text-blue-100 text-sm">
+                  {new Date().toLocaleDateString('it-IT', { 
+                    weekday: 'long', 
+                    day: 'numeric',
+                    month: 'short'
+                  })}
+                </p>
+              </div>
+              {todayExpenses > 0 && (
+                <div className="text-right">
+                  <div className="text-xs text-blue-200">Spese oggi</div>
+                  <div className="text-lg font-bold">{formatCurrency(todayExpenses)}</div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Quick Actions Mobile - 2x2 Grid */}
+          <div className="grid grid-cols-2 gap-3">
+            {quickActions.map((action, index) => (
+              <button
+                key={index}
+                onClick={action.onClick}
+                className={`${action.color} text-white rounded-xl p-4 flex flex-col items-center space-y-2 shadow-lg active:scale-95 transition-transform`}
+              >
+                <action.icon className="w-6 h-6" />
+                <span className="text-sm font-medium text-center">{action.title}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Summary compatto */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Activity className="w-5 h-5" />
+                Panoramica
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                  <div className="text-xs text-gray-600 dark:text-gray-400">Entrate</div>
+                  <div className="text-lg font-bold text-green-600">{formatCurrency(summary.totalIncome)}</div>
+                </div>
+                <div className="text-center p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                  <div className="text-xs text-gray-600 dark:text-gray-400">Spese</div>
+                  <div className="text-lg font-bold text-red-600">{formatCurrency(summary.totalExpenses)}</div>
+                </div>
+              </div>
+              <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <div className="text-xs text-gray-600 dark:text-gray-400">Bilancio Mensile</div>
+                <div className={`text-xl font-bold ${summary.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {formatCurrency(summary.balance)}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Statistiche veloci */}
+          <div className="grid grid-cols-2 gap-3">
+            <Card className="text-center">
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold text-blue-600">{thisMonthTransactions.length}</div>
+                <div className="text-xs text-gray-600 dark:text-gray-400">Transazioni mese</div>
+              </CardContent>
+            </Card>
+            <Card className="text-center">
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold text-green-600">{goals.filter(g => !g.isCompleted).length}</div>
+                <div className="text-xs text-gray-600 dark:text-gray-400">Obiettivi attivi</div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Transazioni e Obiettivi */}
+          <div className="space-y-4">
+            <RecentTransactions />
+            <SavingsGoalsCard />
+          </div>
+
+          {/* Tip del giorno - Compatto */}
+          <Card className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border-amber-200">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <Sparkles className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="font-semibold text-amber-800 dark:text-amber-200 text-sm">💡 Consiglio</h3>
+                  <p className="text-amber-700 dark:text-amber-300 text-xs mt-1">
+                    Controlla regolarmente le tue spese per una migliore gestione finanziaria!
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Desktop Layout - Mantiene il design originale migliorato
   return (
     <Layout>
       <div className="max-w-7xl mx-auto space-y-8">
@@ -147,65 +233,30 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Stats Cards migliorati */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {stats.map((stat, index) => (
-            <Card key={index} className="hover:shadow-xl transition-all duration-300 border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                      {stat.title}
-                    </p>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                      {stat.value}
-                    </p>
-                    <Badge variant="outline" className="text-xs">
-                      {stat.trend}
-                    </Badge>
-                  </div>
-                  <div className={`p-4 rounded-full ${stat.bgColor}`}>
-                    <stat.icon className={`w-6 h-6 ${stat.color}`} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
         {/* Financial Summary */}
         <FinancialSummary />
 
-        {/* Quick Actions rinnovate */}
+        {/* Quick Actions */}
         <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-xl">
           <CardHeader className="pb-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-2xl font-semibold flex items-center gap-3">
-                  <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-                    <Sparkles className="w-5 h-5 text-blue-600" />
-                  </div>
-                  Azioni Rapide
-                </CardTitle>
-                <p className="text-gray-600 dark:text-gray-400 mt-1">
-                  Accedi rapidamente alle funzioni principali
-                </p>
+            <CardTitle className="text-2xl font-semibold flex items-center gap-3">
+              <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                <Sparkles className="w-5 h-5 text-blue-600" />
               </div>
-            </div>
+              Azioni Rapide
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               {quickActions.map((action, index) => (
                 <div
                   key={index}
-                  className={`group relative overflow-hidden rounded-xl ${action.bgColor} p-6 cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-lg`}
+                  className="group relative overflow-hidden rounded-xl bg-gray-50 dark:bg-gray-800 p-6 cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-lg"
                   onClick={action.onClick}
                 >
-                  <div className={`absolute inset-0 bg-gradient-to-r ${action.gradient} opacity-0 group-hover:opacity-10 transition-opacity duration-300`}></div>
-                  
                   <div className="relative z-10 space-y-4">
                     <div className="flex items-center justify-between">
-                      <div className={`p-3 rounded-full bg-gradient-to-r ${action.gradient} text-white`}>
+                      <div className={`p-3 rounded-full ${action.color} text-white`}>
                         <action.icon className="w-6 h-6" />
                       </div>
                       <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-gray-600 transition-colors" />
@@ -215,9 +266,6 @@ const Dashboard: React.FC = () => {
                       <h3 className="font-semibold text-gray-900 dark:text-white text-lg">
                         {action.title}
                       </h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                        {action.description}
-                      </p>
                     </div>
                   </div>
                 </div>

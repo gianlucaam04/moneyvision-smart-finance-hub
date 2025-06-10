@@ -1,104 +1,97 @@
+
 import { supabase } from '@/integrations/supabase/client';
-import type { Archive } from '@/db/schema';
-import JSZip from 'jszip';
-
-export interface ArchiveData {
-  transactions: any[];
-  categories: any[];
-  archived_at: string;
-  archive_reason: string;
-}
-
-export interface ArchiveSummary {
-  id: string;
-  fileName: string;
-  dateRangeStart: string;
-  dateRangeEnd: string;
-  archiveType: string;
-  createdAt: string;
-}
+import { toast } from 'sonner';
 
 export const archivesService = {
-  // Recupera tutti gli archivi dell'utente
-  async getUserArchives(): Promise<ArchiveSummary[]> {
-    const { data, error } = await supabase
-      .from('archives')
-      .select('*')
-      .order('date_range_start', { ascending: false });
+  async getArchivedData(userId: string, type: 'transactions' | 'goals' | 'all' = 'all') {
+    try {
+      const { data, error } = await supabase
+        .from('archived_data')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('data_type', type === 'all' ? undefined : type);
 
-    if (error) {
-      console.error('Errore nel recupero archivi:', error);
-      throw new Error('Impossibile recuperare gli archivi');
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching archived data:', error);
+      throw error;
     }
-
-    return data.map(archive => ({
-      id: archive.id,
-      fileName: archive.file_name,
-      dateRangeStart: archive.date_range_start,
-      dateRangeEnd: archive.date_range_end,
-      archiveType: archive.archive_type,
-      createdAt: archive.created_at || ''
-    }));
   },
 
-  // Recupera e decomprime i dati di un archivio specifico
-  async getArchiveData(archiveId: string): Promise<ArchiveData> {
-    const { data, error } = await supabase
-      .from('archives')
-      .select('file_data')
-      .eq('id', archiveId)
-      .single();
+  async archiveData(userId: string, data: any, type: 'transactions' | 'goals') {
+    try {
+      const { error } = await supabase
+        .from('archived_data')
+        .insert({
+          user_id: userId,
+          data_type: type,
+          archived_data: data,
+          archived_at: new Date().toISOString()
+        });
 
-    if (error) {
-      console.error('Errore nel recupero dati archivio:', error);
-      throw new Error('Impossibile recuperare i dati dell\'archivio');
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error archiving data:', error);
+      throw error;
     }
-
-    // Decomprimi base64 zip in JSON
-    const zip = new JSZip();
-    const loaded = await zip.loadAsync(data.file_data, { base64: true });
-    const jsonStr = await loaded.file('archive.json')!.async('string');
-    return JSON.parse(jsonStr) as ArchiveData;
   },
 
-  // Crea un nuovo archivio per dati più vecchi di 3 anni
-  async createArchive(
-    transactions: any[],
-    categories: any[],
-    dateRangeStart: string,
-    dateRangeEnd: string
-  ): Promise<void> {
-    const { data: { user } } = await supabase.auth.getUser();
+  async deleteArchivedData(archiveId: string) {
+    try {
+      const { error } = await supabase
+        .from('archived_data')
+        .delete()
+        .eq('id', archiveId);
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error deleting archived data:', error);
+      throw error;
+    }
+  }
+};
+
+export const exportToExcel = async (data: any[], filename: string) => {
+  try {
+    const JSZip = (await import('jszip')).default;
     
-    if (!user) {
-      throw new Error('Utente non autenticato');
-    }
+    // Create CSV content directly from data
+    const headers = Object.keys(data[0] || {});
+    const csvContent = [
+      headers.join(','),
+      ...data.map(row => 
+        headers.map(header => {
+          const value = row[header];
+          const stringValue = value !== null && value !== undefined 
+            ? (typeof value === 'object' ? JSON.stringify(value) : String(value))
+            : '';
+          return `"${stringValue.replace(/"/g, '""')}"`;
+        }).join(',')
+      )
+    ].join('\n');
 
-    const archiveData: ArchiveData = {
-      transactions,
-      categories,
-      archived_at: new Date().toISOString(),
-      archive_reason: 'automatic_3_year_cleanup'
-    };
-
-    // Comprimi in zip il JSON dell'archivio
+    // Create ZIP file
     const zip = new JSZip();
-    zip.file('archive.json', JSON.stringify(archiveData));
-    const zipContentBase64 = await zip.generateAsync({ type: 'base64' });
-    const { error } = await supabase
-      .from('archives')
-      .insert({
-        user_id: user.id,
-        file_name: `archive_${dateRangeStart}_to_${dateRangeEnd}.zip`,
-        file_data: zipContentBase64,
-        archive_type: 'auto_archive',
-        date_range_start: dateRangeStart,
-        date_range_end: dateRangeEnd
-      });
-
-    if (error) {
-      console.error('Errore nella creazione archivio:', error);
-      throw new Error('Impossibile creare l\'archivio');
-    }
+    zip.file(`${filename}.csv`, csvContent);
+    
+    const content = await zip.generateAsync({ type: 'blob' });
+    
+    // Download file
+    const url = window.URL.createObjectURL(content);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${filename}.zip`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    
+    return true;
+  } catch (error) {
+    console.error('Error exporting to Excel:', error);
+    throw error;
   }
 };
