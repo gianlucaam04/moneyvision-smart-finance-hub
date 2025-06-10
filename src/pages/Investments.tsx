@@ -1,17 +1,17 @@
-
 import React, { useState, useEffect } from 'react';
 import Layout from '@/components/Layout/Layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { RefreshCw, TrendingUp, TrendingDown, Target, Activity, BarChart3, PieChart, Download, Zap, AlertTriangle } from 'lucide-react';
+import { RefreshCw, TrendingUp, TrendingDown, Target, Activity, BarChart3, PieChart, Download, Zap, AlertTriangle, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import InvestmentForm from '@/components/Investments/InvestmentForm';
 import InvestmentsList from '@/components/Investments/InvestmentsList';
 import { investmentsService } from '@/services/investmentsService';
 import type { Investment } from '@/types/investments';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useIsMobile } from '@/hooks/use-mobile';
 import Together from 'together-ai';
 
 const TOGETHER_API_KEY = '3e5e74406a4de464802163316677abf0b8fae098ac9d23ad1df8fee3a48eb45f';
@@ -29,6 +29,7 @@ const Investments = () => {
   const [selectedTab, setSelectedTab] = useState<'portfolio'|'analytics'>('portfolio');
   const [analysis, setAnalysis] = useState<string>('');
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
+  const isMobile = useIsMobile();
 
   const loadInvestments = async () => {
     try {
@@ -51,7 +52,7 @@ const Investments = () => {
     try {
       const updatedInvestments = await investmentsService.updateCurrentPrices(investments);
       setInvestments(updatedInvestments);
-      toast.success('Prezzi aggiornati con successo!');
+      toast.success('Prezzi aggiornati!');
     } catch (error) {
       console.error('Errore aggiornamento prezzi:', error);
       const errorMessage = error instanceof Error ? error.message : 'Errore nell\'aggiornamento dei prezzi';
@@ -75,7 +76,7 @@ const Investments = () => {
     a.download = `portfolio-${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success('Portfolio esportato con successo!');
+    toast.success('Portfolio esportato!');
   };
 
   useEffect(() => {
@@ -133,18 +134,133 @@ const Investments = () => {
         <div className="flex items-center justify-center h-64">
           <div className="text-center space-y-4">
             <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-500 border-t-transparent mx-auto"></div>
-            <p className="text-gray-600 dark:text-gray-400 font-medium">Caricamento investimenti...</p>
+            <p className="text-gray-600 dark:text-gray-400 font-medium">Caricamento...</p>
           </div>
         </div>
       </Layout>
     );
   }
 
+  // Mobile Layout
+  if (isMobile) {
+    return (
+      <Layout>
+        <div className="space-y-4">
+          {/* Mobile Header compatto */}
+          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-4 text-white">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h1 className="text-xl font-bold">💼 Investimenti</h1>
+                <p className="text-blue-100 text-sm">Il tuo portafoglio</p>
+              </div>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="bg-white/20 hover:bg-white/30 text-white">
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Nuovo Investimento</DialogTitle>
+                  </DialogHeader>
+                  <InvestmentForm hideTrigger onInvestmentAdded={loadInvestments} />
+                </DialogContent>
+              </Dialog>
+            </div>
+            
+            {investments.length > 0 && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-white/10 rounded-lg p-3">
+                  <div className="text-xs text-blue-200">Investito</div>
+                  <div className="text-lg font-bold">€{totalInvested.toLocaleString('it-IT')}</div>
+                </div>
+                <div className="bg-white/10 rounded-lg p-3">
+                  <div className="text-xs text-blue-200">Valore</div>
+                  <div className="text-lg font-bold">€{totalCurrent.toLocaleString('it-IT')}</div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Azioni rapide mobile */}
+          <div className="grid grid-cols-2 gap-3">
+            <Button 
+              onClick={handleUpdatePrices}
+              disabled={isUpdatingPrices || investments.length === 0}
+              className="h-12"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isUpdatingPrices ? 'animate-spin' : ''}`} />
+              Aggiorna
+            </Button>
+            <Button 
+              onClick={exportPortfolio}
+              disabled={investments.length === 0}
+              variant="outline"
+              className="h-12"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Esporta
+            </Button>
+          </div>
+
+          {/* P&L compatto */}
+          {investments.length > 0 && (
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-center">
+                  <div className="text-sm text-gray-600 dark:text-gray-400">P&L Totale</div>
+                  <div className={`text-2xl font-bold ${totalPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {totalPnL >= 0 ? '+' : ''}€{totalPnL.toLocaleString('it-IT')}
+                  </div>
+                  <div className={`text-sm ${totalPnLPercentage >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {totalPnLPercentage >= 0 ? '+' : ''}{totalPnLPercentage.toFixed(2)}%
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Lista investimenti compatta */}
+          <InvestmentsList 
+            investments={investments} 
+            onInvestmentDeleted={loadInvestments}
+          />
+
+          {/* Analisi AI compatta */}
+          {investments.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <PieChart className="w-5 h-5" />
+                  Analisi AI
+                  <Zap className="w-4 h-4 text-yellow-500" />
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isAnalyzing ? (
+                  <div className="text-center py-4">
+                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent mx-auto"></div>
+                    <p className="text-sm text-gray-600 mt-2">Analisi in corso...</p>
+                  </div>
+                ) : (
+                  <div className="text-sm leading-relaxed">
+                    {analysis || 'Clicca per generare un\'analisi del portafoglio'}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </Layout>
+    );
+  }
+
+  // Desktop Layout - Versione semplificata
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header rinnovato con gradiente e animazioni */}
-        <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-blue-600 rounded-2xl p-8 text-white relative overflow-hidden">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header desktop semplificato */}
+        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-6 text-white relative overflow-hidden">
           <div className="absolute inset-0 bg-black/10"></div>
           <div className="relative z-10">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
@@ -249,39 +365,27 @@ const Investments = () => {
           </CardContent>
         </Card>
 
-        {/* Tabs migliorate */}
+        {/* Tabs semplificate */}
         <Tabs value={selectedTab} onValueChange={val => setSelectedTab(val as 'portfolio'|'analytics')} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-1 shadow-lg">
-            <TabsTrigger 
-              value="portfolio" 
-              className="flex items-center gap-2 rounded-lg data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700 transition-all duration-200"
-            >
-              <Target className="w-4 h-4" />
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="portfolio">
+              <Target className="w-4 h-4 mr-2" />
               Portfolio
-              {investments.length > 0 && (
-                <Badge variant="secondary" className="ml-1">
-                  {investments.length}
-                </Badge>
-              )}
             </TabsTrigger>
-            <TabsTrigger 
-              value="analytics" 
-              className="flex items-center gap-2 rounded-lg data-[state=active]:bg-purple-100 data-[state=active]:text-purple-700 transition-all duration-200"
-            >
-              <BarChart3 className="w-4 h-4" />
-              Analisi AI
-              <Zap className="w-3 h-3 text-yellow-500" />
+            <TabsTrigger value="analytics">
+              <BarChart3 className="w-4 h-4 mr-2" />
+              Analisi
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="portfolio" className="space-y-6 mt-8">
+          <TabsContent value="portfolio" className="space-y-6">
             <InvestmentsList 
               investments={investments} 
               onInvestmentDeleted={loadInvestments}
             />
           </TabsContent>
 
-          <TabsContent value="analytics" className="space-y-6 mt-8">
+          <TabsContent value="analytics" className="space-y-6">
             <Card className="bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-blue-900/20 dark:via-purple-900/20 dark:to-pink-900/20 border-0 shadow-xl">
               <CardHeader className="pb-6">
                 <div className="flex items-center justify-between">
@@ -391,3 +495,5 @@ const Investments = () => {
 };
 
 export default Investments;
+
+}

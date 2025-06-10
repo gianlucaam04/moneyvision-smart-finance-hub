@@ -6,10 +6,10 @@ export const archivesService = {
   async getArchivedData(userId: string, type: 'transactions' | 'goals' | 'all' = 'all') {
     try {
       const { data, error } = await supabase
-        .from('archived_data')
+        .from('archives')
         .select('*')
         .eq('user_id', userId)
-        .eq('data_type', type === 'all' ? undefined : type);
+        .eq('archive_type', type === 'all' ? undefined : type);
 
       if (error) throw error;
       return data || [];
@@ -22,12 +22,14 @@ export const archivesService = {
   async archiveData(userId: string, data: any, type: 'transactions' | 'goals') {
     try {
       const { error } = await supabase
-        .from('archived_data')
+        .from('archives')
         .insert({
           user_id: userId,
-          data_type: type,
-          archived_data: data,
-          archived_at: new Date().toISOString()
+          archive_type: type,
+          file_data: data,
+          file_name: `${type}_archive_${new Date().toISOString()}`,
+          date_range_start: new Date().toISOString(),
+          date_range_end: new Date().toISOString()
         });
 
       if (error) throw error;
@@ -41,7 +43,7 @@ export const archivesService = {
   async deleteArchivedData(archiveId: string) {
     try {
       const { error } = await supabase
-        .from('archived_data')
+        .from('archives')
         .delete()
         .eq('id', archiveId);
 

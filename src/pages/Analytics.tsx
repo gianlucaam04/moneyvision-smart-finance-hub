@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -44,10 +43,12 @@ import { useFinance } from '@/contexts/FinanceContext';
 import Layout from '@/components/Layout/Layout';
 import { format, subMonths, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { it } from 'date-fns/locale';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const Analytics: React.FC = () => {
   const { transactions, categories } = useFinance();
   const [selectedPeriod, setSelectedPeriod] = useState(6);
+  const isMobile = useIsMobile();
 
   const startDate = useMemo(() => {
     return subMonths(new Date(), selectedPeriod);
@@ -129,10 +130,10 @@ const Analytics: React.FC = () => {
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white dark:bg-gray-800 p-4 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl">
-          <p className="font-semibold text-gray-900 dark:text-white">{label}</p>
+        <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+          <p className="font-medium text-sm">{label}</p>
           {payload.map((entry: any, index: number) => (
-            <p key={index} className="text-sm mt-1" style={{ color: entry.color }}>
+            <p key={index} className="text-xs mt-1" style={{ color: entry.color }}>
               <span className="font-medium">{entry.name}:</span> {formatCurrency(entry.value)}
             </p>
           ))}
@@ -142,62 +143,200 @@ const Analytics: React.FC = () => {
     return null;
   };
 
-  const generateForecast = () => {
-    if (monthlyData.length < 3) return [];
-    
-    const lastThreeMonths = monthlyData.slice(-3);
-    const avgIncome = lastThreeMonths.reduce((sum, m) => sum + m.income, 0) / 3;
-    const avgExpenses = lastThreeMonths.reduce((sum, m) => sum + m.expenses, 0) / 3;
-    
-    const forecast = [];
-    const today = new Date();
-    
-    for (let i = 1; i <= 3; i++) {
-      const futureDate = new Date(today.getFullYear(), today.getMonth() + i, 1);
-      const monthLabel = format(futureDate, 'MMM yyyy', { locale: it });
-      
-      const incomeVariation = 1 + (Math.random() * 0.2 - 0.1);
-      const expenseVariation = 1 + (Math.random() * 0.2 - 0.1);
-      
-      forecast.push({
-        month: monthLabel,
-        income: Math.round(avgIncome * incomeVariation),
-        expenses: Math.round(avgExpenses * expenseVariation),
-        isProjected: true
-      });
-    }
-    
-    return forecast;
-  };
+  // Mobile Layout
+  if (isMobile) {
+    return (
+      <Layout>
+        <div className="space-y-4">
+          {/* Mobile Header compatto */}
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-4 text-white">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h1 className="text-xl font-bold">📊 Analisi</h1>
+                <p className="text-blue-100 text-sm">Ultimi {selectedPeriod} mesi</p>
+              </div>
+              <div className="flex gap-1">
+                {[3, 6, 12].map(months => (
+                  <Button
+                    key={months}
+                    variant={selectedPeriod === months ? "secondary" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedPeriod(months)}
+                    className={selectedPeriod === months 
+                      ? "bg-white text-blue-600 text-xs px-2 py-1 h-7" 
+                      : "bg-white/20 text-white border-white/30 text-xs px-2 py-1 h-7"
+                    }
+                  >
+                    {months}M
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </div>
 
-  const forecastData = generateForecast();
-  const combinedData = [...monthlyData, ...forecastData];
+          {/* Summary cards compatte */}
+          <div className="grid grid-cols-2 gap-3">
+            <Card className="bg-green-50 dark:bg-green-900/20">
+              <CardContent className="p-3 text-center">
+                <div className="text-xs text-green-700 dark:text-green-300">Entrate</div>
+                <div className="text-lg font-bold text-green-600">{formatCurrency(totalIncome)}</div>
+              </CardContent>
+            </Card>
+            <Card className="bg-red-50 dark:bg-red-900/20">
+              <CardContent className="p-3 text-center">
+                <div className="text-xs text-red-700 dark:text-red-300">Spese</div>
+                <div className="text-lg font-bold text-red-600">{formatCurrency(totalExpenses)}</div>
+              </CardContent>
+            </Card>
+          </div>
 
-  const exportData = () => {
-    const data = {
-      period: `${selectedPeriod} mesi`,
-      totalIncome,
-      totalExpenses,
-      netIncome,
-      savingsRate: `${savingsRate.toFixed(1)}%`,
-      monthlyData,
-      categoryData
-    };
-    
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `analytics-${format(new Date(), 'yyyy-MM-dd')}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+          {/* Bilancio e tasso risparmio */}
+          <div className="grid grid-cols-2 gap-3">
+            <Card>
+              <CardContent className="p-3 text-center">
+                <div className="text-xs text-gray-600 dark:text-gray-400">Bilancio</div>
+                <div className={`text-lg font-bold ${netIncome >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {formatCurrency(netIncome)}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-3 text-center">
+                <div className="text-xs text-gray-600 dark:text-gray-400">Risparmio</div>
+                <div className={`text-lg font-bold ${savingsRate >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {savingsRate.toFixed(1)}%
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
+          {/* Grafico andamento mobile */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">📈 Andamento</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={monthlyData}>
+                    <defs>
+                      <linearGradient id="incomeGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.1}/>
+                      </linearGradient>
+                      <linearGradient id="expenseGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0.1}/>
+                      </linearGradient>
+                    </defs>
+                    <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                    <YAxis tick={{ fontSize: 10 }} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Area
+                      dataKey="income"
+                      stroke="#10b981"
+                      fill="url(#incomeGradient)"
+                      name="Entrate"
+                    />
+                    <Area
+                      dataKey="expenses"
+                      stroke="#ef4444"
+                      fill="url(#expenseGradient)"
+                      name="Spese"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Top categorie mobile */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">🏷️ Top Spese</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {categoryData.slice(0, 3).map((category, index) => (
+                  <div key={category.name} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: colors[index % colors.length] }}
+                        />
+                        <span className="text-sm font-medium truncate">{category.name}</span>
+                      </div>
+                      <div className="text-sm font-bold">
+                        {formatCurrency(category.value)}
+                      </div>
+                    </div>
+                    <Progress 
+                      value={(category.value / categoryData[0]?.value) * 100} 
+                      className="h-2"
+                    />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Insights mobile */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-yellow-500" />
+                Insights
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {savingsRate > 20 && (
+                  <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                    <div className="flex items-center">
+                      <TrendingUp className="w-4 h-4 text-green-600 mr-2" />
+                      <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                        Ottimo risparmio! ({savingsRate.toFixed(1)}%)
+                      </span>
+                    </div>
+                  </div>
+                )}
+                
+                {savingsRate < 0 && (
+                  <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                    <div className="flex items-center">
+                      <AlertCircle className="w-4 h-4 text-red-600 mr-2" />
+                      <span className="text-sm font-medium text-red-800 dark:text-red-200">
+                        Spese superiori alle entrate
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {categoryData.length > 0 && (
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <div className="text-sm">
+                      <span className="font-medium">Categoria principale:</span> {categoryData[0]?.name}
+                    </div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                      {formatCurrency(categoryData[0]?.value)} spesi
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Desktop Layout - mantiene il design completo
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header moderno con gradiente */}
-        <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-blue-800 rounded-2xl p-8 text-white">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header desktop */}
+        <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-blue-800 rounded-2xl p-6 text-white">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div className="space-y-2">
               <h1 className="text-4xl font-bold">
@@ -216,7 +355,25 @@ const Analytics: React.FC = () => {
             
             <div className="flex flex-col sm:flex-row gap-3">
               <Button 
-                onClick={exportData}
+                onClick={() => {
+                  const data = {
+                    period: `${selectedPeriod} mesi`,
+                    totalIncome,
+                    totalExpenses,
+                    netIncome,
+                    savingsRate: `${savingsRate.toFixed(1)}%`,
+                    monthlyData,
+                    categoryData
+                  };
+                  
+                  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `analytics-${format(new Date(), 'yyyy-MM-dd')}.json`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
                 variant="secondary"
                 className="bg-white/20 hover:bg-white/30 text-white border-white/30"
               >
@@ -246,7 +403,7 @@ const Analytics: React.FC = () => {
           </div>
         </div>
 
-        {/* Cards statistiche migliorate */}
+        {/* Summary cards desktop */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card className="bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-900/20 dark:to-emerald-900/30 border-green-200 dark:border-green-800 hover:shadow-lg transition-all duration-300">
             <CardContent className="p-6">
@@ -321,6 +478,7 @@ const Analytics: React.FC = () => {
           </Card>
         </div>
 
+        {/* Desktop tabs */}
         <Tabs defaultValue="trends" className="space-y-6">
           <TabsList className="grid w-full grid-cols-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-1">
             <TabsTrigger value="trends" className="rounded-lg data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700">
@@ -504,95 +662,122 @@ const Analytics: React.FC = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={combinedData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                      <XAxis 
-                        dataKey="month" 
-                        tick={{ fontSize: 12, fill: '#64748b' }}
-                        angle={-45}
-                        textAnchor="end"
-                        height={60}
-                      />
-                      <YAxis tick={{ fontSize: 12, fill: '#64748b' }} />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Legend />
-                      <Line
-                        type="monotone"
-                        dataKey="income"
-                        stroke="#10b981"
-                        strokeWidth={3}
-                        name="Entrate"
-                        connectNulls={false}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="expenses"
-                        stroke="#ef4444"
-                        strokeWidth={3}
-                        name="Uscite"
-                        connectNulls={false}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="mt-6 text-center">
-                  <div className="inline-flex items-center px-4 py-2 bg-blue-100 dark:bg-blue-900/40 rounded-full">
-                    <Lightbulb className="w-4 h-4 text-blue-600 mr-2" />
-                    <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                      Le linee tratteggiate rappresentano le previsioni
-                    </span>
-                  </div>
-                </div>
+                {(() => {
+                  if (monthlyData.length < 3) return null;
+                  
+                  const lastThreeMonths = monthlyData.slice(-3);
+                  const avgIncome = lastThreeMonths.reduce((sum, m) => sum + m.income, 0) / 3;
+                  const avgExpenses = lastThreeMonths.reduce((sum, m) => sum + m.expenses, 0) / 3;
+                  
+                  const forecast = [];
+                  const today = new Date();
+                  
+                  for (let i = 1; i <= 3; i++) {
+                    const futureDate = new Date(today.getFullYear(), today.getMonth() + i, 1);
+                    const monthLabel = format(futureDate, 'MMM yyyy', { locale: it });
+                    
+                    const incomeVariation = 1 + (Math.random() * 0.2 - 0.1);
+                    const expenseVariation = 1 + (Math.random() * 0.2 - 0.1);
+                    
+                    forecast.push({
+                      month: monthLabel,
+                      income: Math.round(avgIncome * incomeVariation),
+                      expenses: Math.round(avgExpenses * expenseVariation),
+                      isProjected: true
+                    });
+                  }
+                  
+                  return (
+                    <>
+                      <div className="h-80">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={[...monthlyData, ...forecast]}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                            <XAxis 
+                              dataKey="month" 
+                              tick={{ fontSize: 12, fill: '#64748b' }}
+                              angle={-45}
+                              textAnchor="end"
+                              height={60}
+                            />
+                            <YAxis tick={{ fontSize: 12, fill: '#64748b' }} />
+                            <Tooltip content={<CustomTooltip />} />
+                            <Legend />
+                            <Line
+                              type="monotone"
+                              dataKey="income"
+                              stroke="#10b981"
+                              strokeWidth={3}
+                              name="Entrate"
+                              connectNulls={false}
+                            />
+                            <Line
+                              type="monotone"
+                              dataKey="expenses"
+                              stroke="#ef4444"
+                              strokeWidth={3}
+                              name="Uscite"
+                              connectNulls={false}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="mt-6 text-center">
+                        <div className="inline-flex items-center px-4 py-2 bg-blue-100 dark:bg-blue-900/40 rounded-full">
+                          <Lightbulb className="w-4 h-4 text-blue-600 mr-2" />
+                          <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                            Le linee tratteggiate rappresentano le previsioni
+                          </span>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                        {forecast.map((forecastItem) => (
+                          <Card key={forecastItem.month} className="border-dashed border-2 border-blue-200 dark:border-blue-800">
+                            <CardHeader className="text-center pb-4">
+                              <CardTitle className="text-lg text-blue-900 dark:text-blue-100">
+                                {forecastItem.month}
+                              </CardTitle>
+                              <Badge variant="secondary" className="mx-auto">
+                                <Zap className="w-3 h-3 mr-1" />
+                                Previsione
+                              </Badge>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                              <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                                <div className="flex items-center">
+                                  <ArrowUpCircle className="w-4 h-4 text-green-600 mr-2" />
+                                  <span className="text-sm font-medium">Entrate</span>
+                                </div>
+                                <span className="font-bold text-green-600">
+                                  {formatCurrency(forecastItem.income)}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                                <div className="flex items-center">
+                                  <ArrowDownCircle className="w-4 h-4 text-red-600 mr-2" />
+                                  <span className="text-sm font-medium">Uscite</span>
+                                </div>
+                                <span className="font-bold text-red-600">
+                                  {formatCurrency(forecastItem.expenses)}
+                                </span>
+                              </div>
+                              <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                <span className="text-sm text-gray-600 dark:text-gray-400">Bilancio Previsto</span>
+                                <p className={`font-bold text-lg ${
+                                  forecastItem.income - forecastItem.expenses >= 0 ? 'text-green-600' : 'text-red-600'
+                                }`}>
+                                  {formatCurrency(forecastItem.income - forecastItem.expenses)}
+                                </p>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </>
+                  );
+                })()}
               </CardContent>
             </Card>
-
-            {forecastData.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {forecastData.map((forecast, index) => (
-                  <Card key={forecast.month} className="border-dashed border-2 border-blue-200 dark:border-blue-800">
-                    <CardHeader className="text-center pb-4">
-                      <CardTitle className="text-lg text-blue-900 dark:text-blue-100">
-                        {forecast.month}
-                      </CardTitle>
-                      <Badge variant="secondary" className="mx-auto">
-                        <Zap className="w-3 h-3 mr-1" />
-                        Previsione
-                      </Badge>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                        <div className="flex items-center">
-                          <ArrowUpCircle className="w-4 h-4 text-green-600 mr-2" />
-                          <span className="text-sm font-medium">Entrate</span>
-                        </div>
-                        <span className="font-bold text-green-600">
-                          {formatCurrency(forecast.income)}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                        <div className="flex items-center">
-                          <ArrowDownCircle className="w-4 h-4 text-red-600 mr-2" />
-                          <span className="text-sm font-medium">Uscite</span>
-                        </div>
-                        <span className="font-bold text-red-600">
-                          {formatCurrency(forecast.expenses)}
-                        </span>
-                      </div>
-                      <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">Bilancio Previsto</span>
-                        <p className={`font-bold text-lg ${
-                          forecast.income - forecast.expenses >= 0 ? 'text-green-600' : 'text-red-600'
-                        }`}>
-                          {formatCurrency(forecast.income - forecast.expenses)}
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
           </TabsContent>
 
           <TabsContent value="insights" className="space-y-6">
