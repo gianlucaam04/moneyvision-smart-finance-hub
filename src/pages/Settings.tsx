@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTheme } from 'next-themes';
 import Layout from '@/components/Layout/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,11 +15,27 @@ import { Settings as SettingsIcon, Download, Upload, Trash2, Save, Database, Use
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { archivesService } from '@/services/archivesService';
+import { Progress } from '@/components/ui/progress';
 
 const Settings: React.FC = () => {
   const { user, updateUserPreferences, signOut } = useAuth();
   const { refreshData } = useFinance();
+  const { setTheme } = useTheme();
   const [isImporting, setIsImporting] = useState(false);
+  const [importTotal, setImportTotal] = useState(0);
+  const [importDone, setImportDone] = useState(0);
+  const [importStatus, setImportStatus] = useState<string>('');
+  const [skippedTx, setSkippedTx] = useState(0);
+  const [skippedCat, setSkippedCat] = useState(0);
+  const [skippedGoal, setSkippedGoal] = useState(0);
+  const [recentNotes, setRecentNotes] = useState<string[]>([]);
+
+  const pushNote = (msg: string) => {
+    setRecentNotes(prev => {
+      const next = [msg, ...prev];
+      return next.slice(0, 5);
+    });
+  };
   const [isExporting, setIsExporting] = useState(false);
   const [isClearingData, setIsClearingData] = useState(false);
   const [showClearDialog, setShowClearDialog] = useState(false);
@@ -90,29 +107,12 @@ const Settings: React.FC = () => {
       try {
         await handleExportData();
         toast.success('Backup automatico abilitato! Verrà eseguito settimanalmente.');
-        
-        // Imposta un intervallo per backup automatici (esempio: ogni settimana)
-        const backupInterval = setInterval(async () => {
-          if (preferences.autoBackup) {
-            await handleExportData();
-            console.log('Backup automatico eseguito');
-          }
-        }, 7 * 24 * 60 * 60 * 1000); // 1 settimana
-        
-        // Salva l'ID dell'intervallo nelle preferenze (in un'app reale useresti un job scheduler)
-        localStorage.setItem('backupInterval', backupInterval.toString());
       } catch (error) {
         toast.error('Errore nell\'abilitare il backup automatico');
         setPreferences({ ...preferences, autoBackup: false });
         return;
       }
     } else {
-      // Disabilita il backup automatico
-      const intervalId = localStorage.getItem('backupInterval');
-      if (intervalId) {
-        clearInterval(parseInt(intervalId));
-        localStorage.removeItem('backupInterval');
-      }
       toast.info('Backup automatico disabilitato.');
     }
 
@@ -156,12 +156,26 @@ const Settings: React.FC = () => {
       let importedCount = 0;
       let archivedCount = 0;
 
+      // Helper: valida UUID v4
+      const isValidUUID = (value: unknown): value is string =>
+        typeof value === 'string' &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+
       // Raggruppa e archivia transazioni oltre 3 anni
       if (data.transactions && Array.isArray(data.transactions)) {
         const now = new Date();
         const threshold = new Date(now.getFullYear() - 3, now.getMonth(), now.getDate());
         const historical = data.transactions.filter(tx => new Date(tx.date) < threshold);
         const recent = data.transactions.filter(tx => new Date(tx.date) >= threshold);
+
+        // Calcola il totale degli step di import
+        const totalSteps = (historical.length > 0 ? 1 : 0)
+          + recent.length
+          + (Array.isArray(data.categories) ? data.categories.length : 0)
+          + (Array.isArray(data.goals) ? data.goals.length : 0);
+        setImportTotal(totalSteps);
+        setImportDone(0);
+        setImportStatus('Preparazione import...');
 
         if (historical.length > 0) {
           const dates = historical.map(tx => new Date(tx.date)).sort((a, b) => a.getTime() - b.getTime());
@@ -170,55 +184,146 @@ const Settings: React.FC = () => {
           try {
             await archivesService.createArchive(historical, data.categories || [], dateRangeStart, dateRangeEnd);
             archivedCount = 1;
+            setImportDone(prev => prev + 1);
+            setImportStatus('Archivio storico creato');
           } catch (archiveError) {
             console.error('Error archiving historical data:', archiveError);
           }
         }
 
         for (const transaction of recent) {
-          const { error } = await supabase
-            .from('transactions')
-            .insert({
-              ...transaction,
-              user_id: user.id,
-              id: undefined
-            });
-          if (!error) importedCount++;
+          setImportStatus(`Import transazione: ${transaction.description || ''}`);
+          // 1) Prova match per id se presente
+          let existingTransactionId: string | null = null;
+          if (isValidUUID(transaction.id)) {
+            const { data: byId } = await supabase
+              .from('transactions')
+              .select('id')
+              .eq('id', transaction.id)
+              .maybeSingle();
+            if (byId?.id) existingTransactionId = byId.id as string;
+          }
+
+          // 2) Fallback: match su campi chiave senza user_id
+          if (!existingTransactionId) {
+            let query = supabase
+              .from('transactions')
+              .select('id')
+              .eq('amount', transaction.amount)
+              .eq('description', transaction.description)
+              .eq('date', transaction.date);
+            if (isValidUUID(transaction.category_id)) {
+              query = query.eq('category_id', transaction.category_id as string);
+            }
+            const { data: byFields } = await query.maybeSingle();
+            if (byFields?.id) existingTransactionId = byFields.id as string;
+          }
+
+          if (!existingTransactionId) {
+            // Inserisci solo se non esiste
+            const { error } = await supabase
+              .from('transactions')
+              .insert({
+                ...transaction,
+                user_id: user.id,
+                id: undefined
+              });
+            if (!error) importedCount++;
+          } else {
+            setSkippedTx(prev => prev + 1);
+            pushNote(`Transazione duplicata: ${transaction.description || ''} (${transaction.date})`);
+          }
+          setImportDone(prev => prev + 1);
         }
       }
 
-      // Importa categorie
+      // Importa categorie (evita duplicati)
       if (data.categories && Array.isArray(data.categories)) {
         for (const category of data.categories) {
-          await supabase
-            .from('categories')
-            .insert({
-              ...category,
-              user_id: user.id,
-              id: undefined
-            });
+          setImportStatus(`Import categoria: ${category.name}`);
+          // 1) Prova match per id se presente, altrimenti per name
+          let existingCategoryId: string | null = null;
+          if (isValidUUID(category.id)) {
+            const { data: byId } = await supabase
+              .from('categories')
+              .select('id')
+              .eq('id', category.id)
+              .maybeSingle();
+            if (byId?.id) existingCategoryId = byId.id as string;
+          }
+          if (!existingCategoryId) {
+            const { data: byName } = await supabase
+              .from('categories')
+              .select('id')
+              .eq('name', category.name)
+              .maybeSingle();
+            if (byName?.id) existingCategoryId = byName.id as string;
+          }
+
+          if (!existingCategoryId) {
+            // Inserisci solo se non esiste
+            await supabase
+              .from('categories')
+              .insert({
+                ...category,
+                user_id: user.id,
+                id: undefined
+              });
+          } else {
+            setSkippedCat(prev => prev + 1);
+            pushNote(`Categoria duplicata: ${category.name}`);
+          }
+          setImportDone(prev => prev + 1);
         }
       }
 
-      // Importa obiettivi
+      // Importa obiettivi (evita duplicati)
       if (data.goals && Array.isArray(data.goals)) {
         for (const goal of data.goals) {
-          const { data: insertedGoalData, error: goalError } = await supabase
-            .from('savings_goals')
-            .insert({
-              title: goal.title,
-              description: goal.description ?? null,
-              target_amount: goal.target_amount,
-              current_amount: goal.current_amount,
-              deadline: goal.deadline,
-              color: goal.color,
-              is_completed: goal.is_completed,
-              user_id: user.id
-            });
-          if (goalError) {
-            console.error('Errore import obiettivi:', goalError);
-            toast.error(`Errore import goal: ${goalError.message}`);
+          setImportStatus(`Import obiettivo: ${goal.title}`);
+          // 1) Prova match per id se presente, altrimenti per title + target_amount
+          let existingGoalId: string | null = null;
+          if (isValidUUID(goal.id)) {
+            const { data: byId } = await supabase
+              .from('savings_goals')
+              .select('id')
+              .eq('id', goal.id)
+              .maybeSingle();
+            if (byId?.id) existingGoalId = byId.id as string;
           }
+          if (!existingGoalId) {
+            const { data: byFields } = await supabase
+              .from('savings_goals')
+              .select('id')
+              .eq('title', goal.title)
+              .eq('target_amount', goal.target_amount)
+              .maybeSingle();
+            if (byFields?.id) existingGoalId = byFields.id as string;
+          }
+
+          if (!existingGoalId) {
+            // Inserisci solo se non esiste
+            const { data: insertedGoalData, error: goalError } = await supabase
+              .from('savings_goals')
+              .insert({
+                title: goal.title,
+                description: goal.description ?? null,
+                target_amount: goal.target_amount,
+                current_amount: goal.current_amount,
+                deadline: goal.deadline,
+                color: goal.color,
+                is_completed: goal.is_completed,
+                user_id: user.id
+              });
+            if (goalError) {
+              console.error('Errore import obiettivi:', goalError);
+              toast.error(`Errore import goal: ${goalError.message}`);
+            }
+          } else {
+            setSkippedGoal(prev => prev + 1);
+            pushNote(`Obiettivo duplicato: ${goal.title}`);
+          }
+          setImportDone(prev => prev + 1);
         }
       }
 
@@ -232,6 +337,13 @@ const Settings: React.FC = () => {
       toast.error('Errore durante l\'importazione dei dati');
     } finally {
       setIsImporting(false);
+      setImportStatus('');
+      setImportTotal(0);
+      setImportDone(0);
+      setSkippedTx(0);
+      setSkippedCat(0);
+      setSkippedGoal(0);
+      setRecentNotes([]);
       if (event.target) {
         event.target.value = '';
       }
@@ -320,6 +432,36 @@ const Settings: React.FC = () => {
   return (
     <Layout>
       <div className="space-y-8 max-w-4xl mx-auto">
+        {isImporting && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-gray-900">
+              <h3 className="mb-2 text-lg font-semibold text-gray-900 dark:text-white">Importazione in corso</h3>
+              <p className="mb-4 text-sm text-gray-600 dark:text-gray-300">{importStatus || 'Elaborazione dati...'}</p>
+              <Progress value={importTotal > 0 ? Math.round((importDone / Math.max(importTotal, 1)) * 100) : 10} />
+              <div className="mt-2 text-right text-xs text-gray-500 dark:text-gray-400">
+                {importDone}/{importTotal} completati
+              </div>
+              {(skippedTx + skippedCat + skippedGoal) > 0 && (
+                <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300">
+                  <div className="mb-1 font-medium">Elementi già presenti (saltati):</div>
+                  <div className="mb-1 flex gap-3">
+                    <span>Transazioni: {skippedTx}</span>
+                    <span>Categorie: {skippedCat}</span>
+                    <span>Obiettivi: {skippedGoal}</span>
+                  </div>
+                  {recentNotes.length > 0 && (
+                    <ul className="mt-1 list-disc pl-5">
+                      {recentNotes.map((n, i) => (
+                        <li key={i} className="truncate">{n}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+              <p className="mt-4 text-xs text-amber-600 dark:text-amber-400">Per favore non chiudere la pagina o eseguire altre azioni fino al completamento.</p>
+            </div>
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
@@ -375,7 +517,10 @@ const Settings: React.FC = () => {
                 <Label htmlFor="theme">Tema</Label>
                 <Select 
                   value={preferences.theme} 
-                  onValueChange={(value) => setPreferences({...preferences, theme: value})}
+                  onValueChange={(value) => {
+                    setPreferences({...preferences, theme: value});
+                    setTheme(value);
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -392,7 +537,12 @@ const Settings: React.FC = () => {
                 <Label htmlFor="language">Lingua</Label>
                 <Select 
                   value={preferences.language} 
-                  onValueChange={(value) => setPreferences({...preferences, language: value})}
+                  onValueChange={(value) => {
+                    setPreferences({...preferences, language: value});
+                    if (typeof document !== 'undefined') {
+                      document.documentElement.lang = value as string;
+                    }
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -400,23 +550,6 @@ const Settings: React.FC = () => {
                   <SelectContent>
                     <SelectItem value="it">🇮🇹 Italiano</SelectItem>
                     <SelectItem value="en">🇬🇧 English</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="currency">Valuta</Label>
-                <Select 
-                  value={preferences.currency} 
-                  onValueChange={(value) => setPreferences({...preferences, currency: value})}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="EUR">€ Euro</SelectItem>
-                    <SelectItem value="USD">$ Dollaro</SelectItem>
-                    <SelectItem value="GBP">£ Sterlina</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

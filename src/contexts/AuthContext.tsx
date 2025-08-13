@@ -224,6 +224,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return false;
       }
 
+      // Aggiorna subito lo stato utente locale per riflettere le preferenze senza attendere eventi auth
+      setUser(prev => prev ? { ...prev, preferences } : prev);
+
       toast.success('Preferenze aggiornate con successo');
       return true;
     } catch (error) {

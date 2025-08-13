@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useFinance } from '@/contexts/FinanceContext';
 import { Category } from '@/types';
 import { Plus, Edit, Trash2, DollarSign, TrendingUp, TrendingDown, Filter } from 'lucide-react';
@@ -175,24 +176,33 @@ const Categories: React.FC = () => {
                   <Edit className="w-4 h-4 mr-2" />
                   Modifica
                 </Button>
-                <Button variant="destructive" size="sm" onClick={() => handleDelete(category.id)}>
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Elimina
-                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm">
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Elimina
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Eliminare la categoria "{category.name}"?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Questa azione non può essere annullata. Verranno rimosse le impostazioni associate alla categoria.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Annulla</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => handleDelete(category.id)}>Elimina</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </CardContent>
             </Card>
           ))}
         </div>
       </div>
-
-      {/* Edit Category Dialog */}
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogTrigger asChild>
-          <Button>
-            <Edit className="w-4 h-4 mr-2" />
-            Modifica Categoria
-          </Button>
-        </DialogTrigger>
+            {/* Edit Category Dialog */}
+            <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Modifica Categoria</DialogTitle>
@@ -243,6 +253,7 @@ const Categories: React.FC = () => {
           <Button onClick={handleUpdate}>Aggiorna</Button>
         </DialogContent>
       </Dialog>
+
     </Layout>
   );
 };

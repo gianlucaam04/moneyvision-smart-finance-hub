@@ -24,17 +24,17 @@ const Header: React.FC<HeaderProps> = ({ title, icon, className }) => {
   };
 
   return (
-    <header className={`bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 py-3 ${className || ''}`}>
-      <div className="flex items-center justify-between max-w-7xl mx-auto">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-gradient-to-r from-finance-blue to-finance-green rounded-full flex items-center justify-center">
+    <div className={`w-full overflow-hidden ${className || ''}`}>
+      <div className="flex items-center justify-between max-w-full px-2">
+        <div className="flex items-center space-x-3 min-w-0 flex-1">
+          <div className="w-8 h-8 bg-gradient-to-r from-finance-blue to-finance-green rounded-full flex items-center justify-center flex-shrink-0">
             <span className="text-white font-bold text-sm">MV</span>
           </div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white truncate">
             {title ? (
-              <div className="flex items-center gap-2">
-                {icon && <span className="text-finance-blue">{icon}</span>}
-                {title}
+              <div className="flex items-center gap-2 min-w-0">
+                {icon && <span className="text-finance-blue flex-shrink-0">{icon}</span>}
+                <span className="truncate">{title}</span>
               </div>
             ) : (
               "MoneyVision"
@@ -42,7 +42,7 @@ const Header: React.FC<HeaderProps> = ({ title, icon, className }) => {
           </h1>
         </div>
 
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-4 flex-shrink-0">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-10 w-10 rounded-full">
@@ -76,7 +76,7 @@ const Header: React.FC<HeaderProps> = ({ title, icon, className }) => {
           </DropdownMenu>
         </div>
       </div>
-    </header>
+    </div>
   );
 };
 

@@ -17,6 +17,8 @@ import NotFound from './pages/NotFound';
 import PrivateRoute from './components/Auth/PrivateRoute';
 import ResetPassword from './pages/ResetPassword';
 import { Toaster } from 'sonner';
+import ThemeProvider from './components/ThemeProvider';
+import PreferencesApplier from './components/PreferencesApplier';
 
 import HistoricalData from './pages/HistoricalData';
 
@@ -24,8 +26,10 @@ const App = () => {
   return (
     <Router>
       <AuthProvider>
-        <FinanceProvider>
-          <Toaster />
+        <ThemeProvider attribute="class" defaultTheme="light">
+          <FinanceProvider>
+            <PreferencesApplier />
+            <Toaster />
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/reset-password" element={<ResetPassword />} />
@@ -81,7 +85,8 @@ const App = () => {
             } />
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </FinanceProvider>
+          </FinanceProvider>
+        </ThemeProvider>
       </AuthProvider>
     </Router>
   );

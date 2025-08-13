@@ -3,22 +3,37 @@ import React, { useState } from 'react';
 import { useFinance } from '@/contexts/FinanceContext';
 import Layout from '@/components/Layout/Layout';
 import TransactionForm from '@/components/Transactions/TransactionForm';
+import EditTransactionForm from '@/components/Transactions/EditTransactionForm';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { CirclePlus, Search, Filter, Edit, Trash2, TrendingUp, TrendingDown, Calendar, Euro } from 'lucide-react';
 import { toast } from 'sonner';
+import { Transaction } from '@/types';
 
 const Transactions: React.FC = () => {
-  const { transactions, categories } = useFinance();
+  const { transactions, deleteTransaction } = useFinance();
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [sortBy, setSortBy] = useState('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [editOpen, setEditOpen] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+
+  // Aggiorna selectedTransaction quando le transazioni cambiano
+  React.useEffect(() => {
+    if (selectedTransaction) {
+      const updatedTransaction = transactions.find(t => t.id === selectedTransaction.id);
+      if (updatedTransaction) {
+        setSelectedTransaction(updatedTransaction);
+      }
+    }
+  }, [transactions, selectedTransaction?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('it-IT', {
@@ -44,43 +59,43 @@ const Transactions: React.FC = () => {
   };
 
   // Filtri e ordinamento
-  let filteredTransactions = transactions.filter(transaction => {
-    const matchesSearch = transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         transaction.category.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = categoryFilter === 'all' || transaction.category === categoryFilter;
-    const matchesType = typeFilter === 'all' || transaction.type === typeFilter;
-    
-    return matchesSearch && matchesCategory && matchesType;
-  });
-
-  // Ordinamento
-  filteredTransactions.sort((a, b) => {
-    let aValue, bValue;
-    
-    switch (sortBy) {
-      case 'amount':
-        aValue = Math.abs(a.amount);
-        bValue = Math.abs(b.amount);
-        break;
-      case 'category':
-        aValue = a.category.toLowerCase();
-        bValue = b.category.toLowerCase();
-        break;
-      case 'description':
-        aValue = a.description.toLowerCase();
-        bValue = b.description.toLowerCase();
-        break;
-      default: // date
-        aValue = new Date(a.date).getTime();
-        bValue = new Date(b.date).getTime();
-    }
-    
-    if (sortOrder === 'asc') {
-      return aValue > bValue ? 1 : -1;
-    } else {
-      return aValue < bValue ? 1 : -1;
-    }
-  });
+  const filteredTransactions = transactions
+    .filter(transaction => {
+      const matchesSearch = transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           transaction.category.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = categoryFilter === 'all' || transaction.category === categoryFilter;
+      const matchesType = typeFilter === 'all' || transaction.type === typeFilter;
+      
+      return matchesSearch && matchesCategory && matchesType;
+    })
+    .slice()
+    .sort((a, b) => {
+      let aValue, bValue;
+      
+      switch (sortBy) {
+        case 'amount':
+          aValue = Math.abs(a.amount);
+          bValue = Math.abs(b.amount);
+          break;
+        case 'category':
+          aValue = a.category.toLowerCase();
+          bValue = b.category.toLowerCase();
+          break;
+        case 'description':
+          aValue = a.description.toLowerCase();
+          bValue = b.description.toLowerCase();
+          break;
+        default: // date
+          aValue = new Date(a.date).getTime();
+          bValue = new Date(b.date).getTime();
+      }
+      
+      if (sortOrder === 'asc') {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
 
   const availableCategories = [...new Set(transactions.map(t => t.category))];
 
@@ -93,10 +108,9 @@ const Transactions: React.FC = () => {
     .filter(t => t.type === 'expense')
     .reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
-  const handleDeleteTransaction = (transaction: any) => {
-    if (confirm(`Sei sicuro di voler eliminare "${transaction.description}"?`)) {
-      toast.success(`"${transaction.description}" è stata eliminata.`);
-    }
+  const handleDeleteTransaction = async (transaction: Transaction) => {
+    await deleteTransaction(transaction.id);
+    toast.success(`"${transaction.description}" è stata eliminata.`);
   };
 
   return (
@@ -350,18 +364,37 @@ const Transactions: React.FC = () => {
                             variant="ghost" 
                             size="sm" 
                             className="hover:bg-blue-100 hover:text-blue-600 p-2"
+                            onClick={() => {
+                              setSelectedTransaction(transaction);
+                              setEditOpen(true);
+                            }}
                           >
                             <Edit className="w-4 h-4" />
                           </Button>
                           
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="hover:bg-red-100 hover:text-red-600 p-2"
-                            onClick={() => handleDeleteTransaction(transaction)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="hover:bg-red-100 hover:text-red-600 p-2"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Eliminare la transazione "{transaction.description}"?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Questa azione non può essere annullata. La transazione verrà rimossa definitivamente.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Annulla</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteTransaction(transaction)}>Elimina</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </div>
                       </div>
                     </div>
@@ -371,6 +404,28 @@ const Transactions: React.FC = () => {
             )}
           </CardContent>
         </Card>
+        {/* Dialog Modifica Transazione */}
+        <Dialog
+          open={editOpen}
+          onOpenChange={(open) => {
+            setEditOpen(open);
+            // Non resettiamo selectedTransaction quando il dialog si chiude
+            // Lo resettiamo solo quando selezioniamo una nuova transazione
+          }}
+        >
+          <DialogContent className="sm:max-w-md">
+            {selectedTransaction && (
+              <EditTransactionForm
+                key={selectedTransaction.id}
+                transaction={selectedTransaction}
+                onSuccess={() => {
+                  toast.success('Transazione aggiornata');
+                  setEditOpen(false);
+                }}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );

@@ -17,6 +17,8 @@ const Goals: React.FC = () => {
   const { goals, addGoal, updateGoal, deleteGoal } = useFinance();
   const [open, setOpen] = useState(false);
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [goalToDelete, setGoalToDelete] = useState<{ id: string; title: string } | null>(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -79,15 +81,17 @@ const Goals: React.FC = () => {
     setOpen(true);
   };
 
-  const handleDelete = async (id: string, title: string) => {
-    if (confirm(`Sei sicuro di voler eliminare l'obiettivo "${title}"?`)) {
-      try {
-        await deleteGoal(id);
-        toast.success('Obiettivo eliminato con successo!');
-      } catch (error) {
-        console.error('Error deleting goal:', error);
-        toast.error('Errore nell\'eliminare l\'obiettivo');
-      }
+  const confirmDelete = async () => {
+    if (!goalToDelete) return;
+    try {
+      await deleteGoal(goalToDelete.id);
+      toast.success('Obiettivo eliminato con successo!');
+    } catch (error) {
+      console.error('Error deleting goal:', error);
+      toast.error("Errore nell'eliminare l'obiettivo");
+    } finally {
+      setDeleteOpen(false);
+      setGoalToDelete(null);
     }
   };
 
@@ -349,13 +353,16 @@ const Goals: React.FC = () => {
                           {formatCurrency(goal.targetAmount)}
                         </span>
                       </div>
-                      <Progress 
-                        value={progressPercentage} 
-                        className="h-2"
-                        style={{ 
-                          '--progress-foreground': goal.color 
-                        } as any}
-                      />
+                      {(() => {
+                        const barStyle = { ['--progress-foreground' as string]: goal.color } as React.CSSProperties;
+                        return (
+                          <Progress 
+                            value={progressPercentage} 
+                            className="h-2"
+                            style={barStyle}
+                          />
+                        );
+                      })()}
                       <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
                         <span>{progressPercentage.toFixed(1)}%</span>
                         <span>
@@ -379,13 +386,34 @@ const Goals: React.FC = () => {
                         <Edit className="w-4 h-4 mr-1" />
                         Modifica
                       </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDelete(goal.id, goal.title)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                      <Dialog open={deleteOpen && goalToDelete?.id === goal.id} onOpenChange={(v) => {
+                        if (!v) { setDeleteOpen(false); setGoalToDelete(null); }
+                      }}>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => { setGoalToDelete({ id: goal.id, title: goal.title }); setDeleteOpen(true); }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Eliminare questo obiettivo?</DialogTitle>
+                            <DialogDescription>
+                              Questa azione non può essere annullata. Verrà eliminato l'obiettivo
+                              {goalToDelete?.title ? ` "${goalToDelete.title}"` : ''} e tutti i dati associati.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="flex justify-end gap-2 pt-2">
+                            <Button variant="outline" onClick={() => { setDeleteOpen(false); setGoalToDelete(null); }}>
+                              Annulla
+                            </Button>
+                            <Button variant="destructive" onClick={confirmDelete}>
+                              Elimina
+                            </Button>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
                     </div>
                   </CardContent>
                 </Card>
