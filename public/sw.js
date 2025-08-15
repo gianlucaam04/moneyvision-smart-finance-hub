@@ -1,9 +1,26 @@
 self.addEventListener('install', (event) => {
-  self.skipWaiting();
+  const CACHE = 'mv-app-shell-v1';
+  event.waitUntil(
+    (async () => {
+      try {
+        const cache = await caches.open(CACHE);
+        await cache.addAll(['/','/index.html','/manifest.webmanifest']);
+      } finally {
+        self.skipWaiting();
+      }
+    })()
+  );
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  const KEEP = 'mv-app-shell-v1';
+  event.waitUntil(
+    (async () => {
+      const names = await caches.keys();
+      await Promise.all(names.filter((n) => n !== KEEP).map((n) => caches.delete(n)));
+      await self.clients.claim();
+    })()
+  );
 });
 
 // Helper: open or focus a URL
@@ -17,6 +34,27 @@ async function openOrFocus(url) {
   }
   await self.clients.openWindow(url);
 }
+
+// Navigation handling: network-first with app-shell fallback
+self.addEventListener('fetch', (event) => {
+  const req = event.request;
+  const url = new URL(req.url);
+  const isNavigate = req.mode === 'navigate';
+  const isAPI = url.pathname.startsWith('/api/') || url.pathname.includes('/functions/');
+  if (!isNavigate || isAPI) return; // let non-navigation/API requests pass through
+
+  event.respondWith((async () => {
+    try {
+      const res = await fetch(req);
+      if (!res || res.status >= 500) throw new Error('server error');
+      return res;
+    } catch (_e) {
+      const cache = await caches.open('mv-app-shell-v1');
+      const cached = await cache.match('/index.html');
+      return cached || Response.error();
+    }
+  })());
+});
 
 self.addEventListener('push', (event) => {
   try {

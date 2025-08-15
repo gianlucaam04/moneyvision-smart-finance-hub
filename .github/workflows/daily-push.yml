@@ -2,8 +2,8 @@ name: Daily Push Notification
 
 on:
   schedule:
-    # Every day at 18:10 UTC (20:10 in Italy during CEST) for testing.
-    - cron: "10 18 * * *"
+    # Every day at 18:30 UTC (20:30 in Italy during CEST) for testing.
+    - cron: "30 18 * * *"
   workflow_dispatch: {}
 
 jobs:
@@ -24,7 +24,7 @@ jobs:
             echo "Missing SUPABASE_ANON_KEY secret (Project Settings -> API -> anon key)" >&2
             exit 1
           fi
-          curl -sS -X POST "$FUNCTION_URL" \
+          curl -sS --retry 3 --retry-all-errors -X POST "$FUNCTION_URL" \
             -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
             -H "x-cron-secret: $CRON_SECRET" \
             -H "Content-Type: application/json" \
