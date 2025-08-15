@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { ensurePushSubscription } from '@/push/subscribePush';
 
 // Applies user preferences (theme, language, currency, notifications/backup side-effects)
 const PreferencesApplier: React.FC = () => {
@@ -29,11 +30,21 @@ const PreferencesApplier: React.FC = () => {
       document.documentElement.setAttribute('data-currency', prefs.currency);
     }
 
-    // Notifications: if enabled and permission is default, request once
-    if (prefs.notifications && 'Notification' in window) {
-      if (Notification.permission === 'default') {
-        Notification.requestPermission().catch(() => void 0);
-      }
+    // Notifications + Web Push subscription
+    if (prefs.notifications && typeof window !== 'undefined' && 'Notification' in window) {
+      const proceed = async () => {
+        try {
+          if (!user?.id) return;
+          if (Notification.permission === 'default') {
+            const res = await Notification.requestPermission();
+            if (res !== 'granted') return;
+          }
+          await ensurePushSubscription(user.id);
+        } catch {
+          // ignore
+        }
+      };
+      void proceed();
     }
 
     // Auto-backup: ensure an interval exists only if enabled
