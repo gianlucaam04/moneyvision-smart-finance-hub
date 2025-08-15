@@ -21,29 +21,26 @@ async function openOrFocus(url) {
 self.addEventListener('push', (event) => {
   try {
     const data = event.data ? event.data.json() : {};
-    const title = data.title || '💡 MoneyVision';
+    const title = data.title ?? '';
     const body = data.body || 'Hai aggiornato oggi le tue spese?\nApri l\'app e tieni tutto sotto controllo.';
 
     // Allow server to customize visuals & behavior via payload
     const options = {
       body,
-      icon: data.icon || '/icons/android-chrome-192x192.png',
-      badge: data.badge || '/icons/android-chrome-192x192.png',
+      icon: data.icon,
+      badge: data.badge,
       tag: data.tag || 'moneyvision-daily',
       renotify: data.renotify ?? true,
       data: {
         url: (data.data && data.data.url) || '/dashboard',
         ...data.data,
       },
-      actions: data.actions || [
-        { action: 'open', title: 'Apri app' },
-        { action: 'add-expense', title: 'Aggiungi spesa' },
-      ],
+      actions: data.actions || [],
     };
 
     event.waitUntil(self.registration.showNotification(title, options));
   } catch (e) {
-    event.waitUntil(self.registration.showNotification('MoneyVision', { body: 'Hai una nuova notifica.' }));
+    event.waitUntil(self.registration.showNotification('', { body: 'Hai una nuova notifica.' }));
   }
 });
 
