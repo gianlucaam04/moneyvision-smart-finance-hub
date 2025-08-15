@@ -6,38 +6,52 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });
 
+// Helper: open or focus a URL
+async function openOrFocus(url) {
+  const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  for (const client of allClients) {
+    if ('focus' in client && client.url && client.url.includes(new URL(url, self.registration.scope).pathname)) {
+      client.focus();
+      return;
+    }
+  }
+  await self.clients.openWindow(url);
+}
+
 self.addEventListener('push', (event) => {
   try {
     const data = event.data ? event.data.json() : {};
-    const title = data.title || 'MoneyVision';
-    const body = data.body || 'Nuova notifica';
+    const title = data.title || '💡 MoneyVision';
+    const body = data.body || 'Hai aggiornato oggi le tue spese?\nApri l\'app e tieni tutto sotto controllo.';
+
+    // Allow server to customize visuals & behavior via payload
     const options = {
       body,
-      icon: '/icons/icon-192.png',
-      badge: '/icons/icon-192.png',
-      data: data.data || {},
+      icon: data.icon || '/icons/android-chrome-192x192.png',
+      badge: data.badge || '/icons/android-chrome-192x192.png',
+      tag: data.tag || 'moneyvision-daily',
+      renotify: data.renotify ?? true,
+      data: {
+        url: (data.data && data.data.url) || '/dashboard',
+        ...data.data,
+      },
+      actions: data.actions || [
+        { action: 'open', title: 'Apri app' },
+        { action: 'add-expense', title: 'Aggiungi spesa' },
+      ],
     };
+
     event.waitUntil(self.registration.showNotification(title, options));
   } catch (e) {
-    event.waitUntil(self.registration.showNotification('MoneyVision', { body: 'Nuova notifica' }));
+    event.waitUntil(self.registration.showNotification('MoneyVision', { body: 'Hai una nuova notifica.' }));
   }
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = '/';
-  event.waitUntil(
-    self.clients.matchAll({ type: 'window' }).then((clientsArr) => {
-      const hadWindow = clientsArr.some((windowClient) => {
-        if (windowClient.url.includes(url)) {
-          windowClient.focus();
-          return true;
-        }
-        return false;
-      });
-      if (!hadWindow) {
-        return self.clients.openWindow(url);
-      }
-    })
-  );
+  const action = event.action;
+  const url = (event.notification && event.notification.data && event.notification.data.url) || '/dashboard';
+  const targetUrl = action === 'add-expense' ? '/transactions/new' : url;
+
+  event.waitUntil(openOrFocus(targetUrl));
 });

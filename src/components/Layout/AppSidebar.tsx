@@ -119,9 +119,14 @@ const AppSidebar: React.FC = () => {
     <Sidebar collapsible="icon" className="border-r border-gray-200 dark:border-gray-700">
       <SidebarHeader className="border-b border-gray-200 dark:border-gray-700 p-3">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-finance-blue rounded-lg flex items-center justify-center shrink-0">
-            <Wallet className="w-5 h-5 text-white" />
-          </div>
+          <img
+            src="/icons/android-chrome-192x192.png"
+            alt="MoneyVision logo"
+            className="w-8 h-8 rounded-lg shrink-0"
+            width={32}
+            height={32}
+            loading="eager"
+          />
           <div className="group-data-[collapsible=icon]:hidden min-w-0 flex-1">
             <h2 className="text-lg font-bold text-gray-900 dark:text-white truncate">
               MoneyVision

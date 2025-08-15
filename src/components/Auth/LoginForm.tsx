@@ -59,9 +59,14 @@ const LoginForm: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-finance-blue/20 via-white to-finance-green/20 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center p-4">
       <Card className="w-full max-w-md animate-fade-in">
         <CardHeader className="text-center space-y-4">
-          <div className="mx-auto w-16 h-16 bg-gradient-to-r from-finance-blue to-finance-green rounded-full flex items-center justify-center">
-            <span className="text-white font-bold text-2xl">MV</span>
-          </div>
+          <img
+            src="/icons/android-chrome-192x192.png"
+            alt="MoneyVision logo"
+            className="mx-auto w-16 h-16 rounded-xl shadow-sm"
+            width={64}
+            height={64}
+            loading="eager"
+          />
           <CardTitle className="text-2xl font-bold text-gray-900 dark:text-white">
             MoneyVision
           </CardTitle>
