@@ -21,7 +21,7 @@ async function openOrFocus(url) {
 self.addEventListener('push', (event) => {
   try {
     const data = event.data ? event.data.json() : {};
-    const title = data.title ?? '';
+    const title = '';
     const body = data.body || 'Hai aggiornato oggi le tue spese?\nApri l\'app e tieni tutto sotto controllo.';
 
     // Allow server to customize visuals & behavior via payload
