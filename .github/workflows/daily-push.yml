@@ -2,8 +2,8 @@ name: Daily Push Notification
 
 on:
   schedule:
-    # Every day at 18:00 UTC (20:00 in Italy during CEST). Adjust as needed.
-    - cron: "0 18 * * *"
+    # Every day at 18:10 UTC (20:10 in Italy during CEST) for testing.
+    - cron: "10 18 * * *"
   workflow_dispatch: {}
 
 jobs:
