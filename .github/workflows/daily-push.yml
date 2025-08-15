@@ -14,12 +14,18 @@ jobs:
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
           FUNCTION_URL: ${{ secrets.FUNCTION_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
           if [ -z "$FUNCTION_URL" ]; then
             echo "Missing FUNCTION_URL secret (e.g., https://<project-ref>.supabase.co/functions/v1/send-daily-push)" >&2
             exit 1
           fi
+          if [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "Missing SUPABASE_ANON_KEY secret (Project Settings -> API -> anon key)" >&2
+            exit 1
+          fi
           curl -sS -X POST "$FUNCTION_URL" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
             -H "x-cron-secret: $CRON_SECRET" \
             -H "Content-Type: application/json" \
             --data '{"source":"github-actions"}'
