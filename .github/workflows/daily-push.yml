@@ -20,6 +20,6 @@ jobs:
             exit 1
           fi
           curl -sS -X POST "$FUNCTION_URL" \
-            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "x-cron-secret: $CRON_SECRET" \
             -H "Content-Type: application/json" \
             --data '{"source":"github-actions"}'
