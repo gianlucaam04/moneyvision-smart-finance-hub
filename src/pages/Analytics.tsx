@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
+import Layout from '@/components/Layout/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -7,8 +8,6 @@ import { Progress } from '@/components/ui/progress';
 import {
   BarChart,
   Bar,
-  LineChart,
-  Line,
   PieChart,
   Pie,
   Cell,
@@ -25,44 +24,64 @@ import {
   TrendingUp,
   TrendingDown,
   Calendar,
-  PieChart as PieChartIcon,
-  BarChart3,
-  Target,
-  AlertCircle,
+  Minus,
   Sparkles,
-  DollarSign,
-  ArrowUpCircle,
-  ArrowDownCircle,
-  Brain,
   Lightbulb,
-  Zap,
-  Download,
-  Filter
+  CheckCircle,
+  AlertTriangle,
+  AlertCircle,
+  Copy,
+  Info,
+  DollarSign,
+  Filter,
+  Target,
+  BarChart3,
+  PieChart as PieChartIcon,
 } from 'lucide-react';
 import { useFinance } from '@/contexts/FinanceContext';
-import Layout from '@/components/Layout/Layout';
-import { format, subMonths, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
+import { useMonthlyInsights } from '@/ai/hooks/useMonthlyInsights';
+import { format, startOfMonth, endOfMonth, isWithinInterval, addMonths, eachDayOfInterval } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { useIsMobile } from '@/hooks/use-mobile';
+ 
 
 const Analytics: React.FC = () => {
   const { transactions, categories } = useFinance();
-  const [selectedPeriod, setSelectedPeriod] = useState(6);
+  // Analisi per mese specifico (YYYY-MM)
+  const [selectedMonth, setSelectedMonth] = useState<string>(format(new Date(), 'yyyy-MM'));
   const isMobile = useIsMobile();
+  const { insights, insightsJson, loading: insightsLoading, error: insightsError, generate } = useMonthlyInsights();
 
-  const startDate = useMemo(() => {
-    return subMonths(new Date(), selectedPeriod);
-  }, [selectedPeriod]);
+  const handleCopy = useCallback((content: string) => {
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(content).catch(() => {});
+    }
+  }, []);
+
+  // Calcola l'intervallo [inizio mese, fine mese] per il mese selezionato
+  const { startDate, endDate } = useMemo(() => {
+    const refDate = new Date(`${selectedMonth}-01`);
+    return {
+      startDate: startOfMonth(refDate),
+      endDate: endOfMonth(refDate),
+    };
+  }, [selectedMonth]);
+
+  // Evita di mostrare JSON grezzo se il parsing fallisce: mostra testo solo se non sembra JSON
+  const shouldShowRawInsights = useMemo(() => {
+    const s = (insights || '').trim();
+    if (!s) return false;
+    const looksLikeJson = s.startsWith('{') && s.endsWith('}');
+    return !looksLikeJson;
+  }, [insights]);
+
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter(transaction => {
       const transactionDate = new Date(transaction.date);
-      return isWithinInterval(transactionDate, {
-        start: startDate,
-        end: new Date()
-      });
+      return isWithinInterval(transactionDate, { start: startDate, end: endDate });
     });
-  }, [transactions, startDate]);
+  }, [transactions, startDate, endDate]);
 
   const monthlyData = useMemo(() => {
     const months: { [key: string]: { income: number; expenses: number; month: string } } = {};
@@ -76,14 +95,20 @@ const Analytics: React.FC = () => {
       }
       
       if (transaction.type === 'income') {
-        months[monthKey].income += Number(transaction.amount);
+        months[monthKey].income += Math.abs(Number(transaction.amount));
       } else {
-        months[monthKey].expenses += Number(transaction.amount);
+        months[monthKey].expenses += Math.abs(Number(transaction.amount));
       }
     });
     
-    return Object.values(months).sort((a, b) => a.month.localeCompare(b.month));
+    // Ordinamento cronologico per chiave anno-mese
+    return Object.entries(months)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([, v]) => v);
   }, [filteredTransactions]);
+
+  
+
 
   const categoryData = useMemo(() => {
     const expensesByCategory: { [key: string]: number } = {};
@@ -92,7 +117,7 @@ const Analytics: React.FC = () => {
       .filter(t => t.type === 'expense')
       .forEach(transaction => {
         expensesByCategory[transaction.category] = 
-          (expensesByCategory[transaction.category] || 0) + Number(transaction.amount);
+          (expensesByCategory[transaction.category] || 0) + Math.abs(Number(transaction.amount));
       });
     
     return Object.entries(expensesByCategory)
@@ -104,19 +129,129 @@ const Analytics: React.FC = () => {
   const totalIncome = useMemo(() => 
     filteredTransactions
       .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + Number(t.amount), 0), 
+      .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0), 
     [filteredTransactions]
   );
 
   const totalExpenses = useMemo(() => 
     filteredTransactions
       .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + Number(t.amount), 0), 
+      .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0), 
     [filteredTransactions]
   );
 
   const netIncome = totalIncome - totalExpenses;
   const savingsRate = totalIncome > 0 ? (netIncome / totalIncome) * 100 : 0;
+
+  // Metriche: confronto con mese precedente
+  const {
+    prevIncome,
+    prevExpenses,
+    incomeChangePct,
+    expensesChangePct
+  } = useMemo(() => {
+    const refDate = new Date(`${selectedMonth}-01`);
+    const prevRef = addMonths(refDate, -1);
+    const prevStart = startOfMonth(prevRef);
+    const prevEnd = endOfMonth(prevRef);
+
+    const previousTransactions = transactions.filter(t => {
+      const d = new Date(t.date);
+      return isWithinInterval(d, { start: prevStart, end: prevEnd });
+    });
+
+    const pIncome = previousTransactions
+      .filter(t => t.type === 'income')
+      .reduce((s, t) => s + Math.abs(Number(t.amount)), 0);
+    const pExpenses = previousTransactions
+      .filter(t => t.type === 'expense')
+      .reduce((s, t) => s + Math.abs(Number(t.amount)), 0);
+
+    const incomeDelta = pIncome > 0 ? ((totalIncome - pIncome) / pIncome) * 100 : 0;
+    const expensesDelta = pExpenses > 0 ? ((totalExpenses - pExpenses) / pExpenses) * 100 : 0;
+
+    return {
+      prevIncome: pIncome,
+      prevExpenses: pExpenses,
+      incomeChangePct: incomeDelta,
+      expensesChangePct: expensesDelta,
+    };
+  }, [selectedMonth, transactions, totalIncome, totalExpenses]);
+
+  // Metriche: categorie in sforamento (spesa > budget)
+  const overBudgetCategories = useMemo(() => {
+    if (!categories || categories.length === 0) return [] as { name: string; spent: number; budget: number }[];
+
+    const expenseMap: Record<string, number> = {};
+    filteredTransactions
+      .filter(t => t.type === 'expense')
+      .forEach(t => {
+        const key = t.category;
+        expenseMap[key] = (expenseMap[key] || 0) + Math.abs(Number(t.amount));
+      });
+
+    return categories
+      .filter(c => (c.type === 'expense' || c.type === 'both') && typeof c.budget === 'number' && c.budget! > 0)
+      .map(c => ({ name: c.name, spent: expenseMap[c.name] || 0, budget: Number(c.budget) }))
+      .filter(x => x.spent > x.budget)
+      .sort((a, b) => (b.spent - b.budget) - (a.spent - a.budget));
+  }, [filteredTransactions, categories]);
+
+  // Metriche: spese ricorrenti (match per descrizione tra mese selezionato e precedente)
+  const recurringExpenses = useMemo(() => {
+    const refDate = new Date(`${selectedMonth}-01`);
+    const prevRef = addMonths(refDate, -1);
+    const prevStart = startOfMonth(prevRef);
+    const prevEnd = endOfMonth(prevRef);
+
+    const prevExpenseDescriptions = new Set(
+      transactions
+        .filter(t => t.type === 'expense')
+        .filter(t => {
+          const d = new Date(t.date);
+          return isWithinInterval(d, { start: prevStart, end: prevEnd });
+        })
+        .map(t => (t.description || '').trim().toLowerCase())
+        .filter(Boolean)
+    );
+
+    return filteredTransactions
+      .filter(t => t.type === 'expense')
+      .filter(t => prevExpenseDescriptions.has((t.description || '').trim().toLowerCase()))
+      .map(t => ({
+        date: t.date,
+        description: t.description,
+        category: t.category,
+        amount: Math.abs(Number(t.amount))
+      }));
+  }, [selectedMonth, filteredTransactions, transactions]);
+
+
+  // Dati giornalieri cumulati per il mese selezionato (per grafico linea)
+  const dailyCumulative = useMemo(() => {
+    const days = eachDayOfInterval({ start: startDate, end: endDate });
+    let cumInc = 0;
+    let cumExp = 0;
+    return days.map(d => {
+      const dayTx = filteredTransactions.filter(t => {
+        const td = new Date(t.date);
+        return td.getFullYear() === d.getFullYear() && td.getMonth() === d.getMonth() && td.getDate() === d.getDate();
+      });
+      const inc = dayTx
+        .filter(t => t.type === 'income')
+        .reduce((s, t) => s + Math.abs(Number(t.amount)), 0);
+      const exp = dayTx
+        .filter(t => t.type === 'expense')
+        .reduce((s, t) => s + Math.abs(Number(t.amount)), 0);
+      cumInc += inc;
+      cumExp += exp;
+      return {
+        day: format(d, 'dd MMM', { locale: it }),
+        income: cumInc,
+        expenses: cumExp,
+      };
+    });
+  }, [filteredTransactions, startDate, endDate]);
 
   const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
 
@@ -151,7 +286,7 @@ const Analytics: React.FC = () => {
   // Mobile Layout
   // (Removed legacy early mobile return to ensure Tabs render on mobile)
 
-  // Desktop Layout - mantiene il design completo
+  // Desktop/Mobile Layout - wrappato in Layout per avere sidebar/header e quick tabs mobile
   return (
     <Layout>
       <div className="max-w-7xl mx-auto space-y-6">
@@ -163,62 +298,29 @@ const Analytics: React.FC = () => {
                 📊 Analisi Finanziarie
               </h1>
               <p className="text-blue-100 text-lg">
-                Insights avanzati sui tuoi dati finanziari
+                Analisi del mese: {format(startDate, 'MMMM yyyy', { locale: it })}
               </p>
               <div className="flex items-center gap-2 mt-4">
                 <Calendar className="w-4 h-4" />
                 <span className="text-sm text-blue-200">
-                  Analisi degli ultimi {selectedPeriod} mesi
+                  Seleziona un mese specifico
                 </span>
               </div>
             </div>
             
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Button 
-                onClick={() => {
-                  const data = {
-                    period: `${selectedPeriod} mesi`,
-                    totalIncome,
-                    totalExpenses,
-                    netIncome,
-                    savingsRate: `${savingsRate.toFixed(1)}%`,
-                    monthlyData,
-                    categoryData
-                  };
-                  
-                  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `analytics-${format(new Date(), 'yyyy-MM-dd')}.json`;
-                  a.click();
-                  URL.revokeObjectURL(url);
-                }}
-                variant="secondary"
-                className="bg-white/20 hover:bg-white/30 text-white border-white/30"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Esporta Dati
-              </Button>
-              <div className="flex gap-2">
-                <Filter className="w-5 h-5 mt-2" />
-                <div className="flex flex-wrap gap-2">
-                  {[3, 6, 12, 24].map(months => (
-                    <Button
-                      key={months}
-                      variant={selectedPeriod === months ? "secondary" : "outline"}
-                      size="sm"
-                      onClick={() => setSelectedPeriod(months)}
-                      className={selectedPeriod === months 
-                        ? "bg-white text-blue-600 hover:bg-gray-100" 
-                        : "bg-white/20 text-white border-white/30 hover:bg-white/30"
-                      }
-                    >
-                      {months}M
-                    </Button>
-                  ))}
-                </div>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <div className="flex items-center gap-3">
+                <Filter className="w-5 h-5 opacity-90" />
+                <label className="sr-only" htmlFor="analytics-month">Seleziona mese</label>
+                <input
+                  id="analytics-month"
+                  type="month"
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="rounded-full bg-white/15 border border-white/25 px-4 py-2 text-white placeholder-white/70 shadow-sm backdrop-blur-sm hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/60 focus:border-white/60 transition"
+                />
               </div>
+              <span className="text-sm text-blue-100/90">Mese corrente: {format(startDate, 'MMMM yyyy', { locale: it })}</span>
             </div>
           </div>
         </div>
@@ -301,7 +403,7 @@ const Analytics: React.FC = () => {
         {/* Tabs solo su mobile; su desktop mostriamo tutte le sezioni in sequenza */}
         {isMobile ? (
         <Tabs defaultValue="trends" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-1">
+          <TabsList className="grid w-full grid-cols-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-1">
             <TabsTrigger value="trends" className="rounded-lg data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700">
               <BarChart3 className="w-4 h-4 mr-2" />
               Tendenze
@@ -310,13 +412,9 @@ const Analytics: React.FC = () => {
               <PieChartIcon className="w-4 h-4 mr-2" />
               Categorie
             </TabsTrigger>
-            <TabsTrigger value="forecast" className="rounded-lg data-[state=active]:bg-purple-100 data-[state=active]:text-purple-700">
-              <Brain className="w-4 h-4 mr-2" />
-              Previsioni
-            </TabsTrigger>
-            <TabsTrigger value="insights" className="rounded-lg data-[state=active]:bg-orange-100 data-[state=active]:text-orange-700">
+            <TabsTrigger value="insights" className="rounded-lg data-[state=active]:bg-indigo-100 data-[state=active]:text-indigo-700">
               <Sparkles className="w-4 h-4 mr-2" />
-              Insights
+              Insights AI
             </TabsTrigger>
           </TabsList>
 
@@ -329,7 +427,7 @@ const Analytics: React.FC = () => {
                       📈 Andamento Mensile
                     </CardTitle>
                     <CardDescription className="text-gray-600 dark:text-gray-400 mt-1">
-                      Confronto entrate vs uscite negli ultimi {selectedPeriod} mesi
+                      Confronto entrate vs uscite nel mese selezionato
                     </CardDescription>
                   </div>
                   <Badge variant="secondary" className="bg-blue-100 text-blue-700">
@@ -450,12 +548,12 @@ const Analytics: React.FC = () => {
                               {formatCurrency(category.value)}
                             </div>
                             <div className="text-xs text-gray-500">
-                              {((category.value / totalExpenses) * 100).toFixed(1)}%
+                              {totalExpenses > 0 ? ((category.value / totalExpenses) * 100).toFixed(1) : '0.0'}%
                             </div>
                           </div>
                         </div>
                         <Progress 
-                          value={(category.value / categoryData[0]?.value) * 100} 
+                          value={categoryData[0]?.value ? (category.value / categoryData[0].value) * 100 : 0} 
                           className="h-3"
                           style={{ 
                             backgroundColor: `${colors[index % colors.length]}20`
@@ -469,225 +567,156 @@ const Analytics: React.FC = () => {
             </div>
           </TabsContent>
 
-          <TabsContent value="forecast" className="space-y-6">
-            <Card className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-200 dark:border-blue-800">
-              <CardHeader className="text-center">
-                <div className="mx-auto w-12 h-12 bg-blue-100 dark:bg-blue-900/40 rounded-xl flex items-center justify-center mb-4">
-                  <Brain className="w-6 h-6 text-blue-600" />
-                </div>
-                <CardTitle className="text-blue-900 dark:text-blue-100">
-                  Previsioni Intelligenti
-                </CardTitle>
-                <CardDescription className="text-blue-700 dark:text-blue-300">
-                  Basate sui tuoi pattern di spesa degli ultimi 3 mesi
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {(() => {
-                  if (monthlyData.length < 3) return null;
-                  
-                  const lastThreeMonths = monthlyData.slice(-3);
-                  const avgIncome = lastThreeMonths.reduce((sum, m) => sum + m.income, 0) / 3;
-                  const avgExpenses = lastThreeMonths.reduce((sum, m) => sum + m.expenses, 0) / 3;
-                  
-                  const forecast = [];
-                  const today = new Date();
-                  
-                  for (let i = 1; i <= 3; i++) {
-                    const futureDate = new Date(today.getFullYear(), today.getMonth() + i, 1);
-                    const monthLabel = format(futureDate, 'MMM yyyy', { locale: it });
-                    
-                    const incomeVariation = 1 + (Math.random() * 0.2 - 0.1);
-                    const expenseVariation = 1 + (Math.random() * 0.2 - 0.1);
-                    
-                    forecast.push({
-                      month: monthLabel,
-                      income: Math.round(avgIncome * incomeVariation),
-                      expenses: Math.round(avgExpenses * expenseVariation),
-                      isProjected: true
-                    });
-                  }
-                  
-                  return (
-                    <>
-                      <div className="h-80">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={[...monthlyData, ...forecast]}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                            <XAxis 
-                              dataKey="month" 
-                              tick={{ fontSize: 12, fill: '#64748b' }}
-                              angle={-45}
-                              textAnchor="end"
-                              height={60}
-                            />
-                            <YAxis tick={{ fontSize: 12, fill: '#64748b' }} />
-                            <Tooltip content={<CustomTooltip />} />
-                            <Legend />
-                            <Line
-                              type="monotone"
-                              dataKey="income"
-                              stroke="#10b981"
-                              strokeWidth={3}
-                              name="Entrate"
-                              connectNulls={false}
-                            />
-                            <Line
-                              type="monotone"
-                              dataKey="expenses"
-                              stroke="#ef4444"
-                              strokeWidth={3}
-                              name="Uscite"
-                              connectNulls={false}
-                            />
-                          </LineChart>
-                        </ResponsiveContainer>
+          {/* Sezione Previsioni rimossa */}
+
+          {/* TabsContent per Insights AI (mobile) */}
+          <TabsContent value="insights" className="space-y-6">
+            <Card className="relative overflow-hidden bg-gradient-to-br from-purple-50/80 via-white to-blue-50/80 dark:from-purple-900/20 dark:via-gray-800 dark:to-blue-900/20 backdrop-blur-sm border-0 shadow-2xl">
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 to-blue-500/5 dark:from-purple-400/10 dark:to-blue-400/10"></div>
+              <CardHeader className="relative">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="relative">
+                      <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                        <Sparkles className="w-6 h-6 text-white animate-pulse" />
                       </div>
-                      <div className="mt-6 text-center">
-                        <div className="inline-flex items-center px-4 py-2 bg-blue-100 dark:bg-blue-900/40 rounded-full">
-                          <Lightbulb className="w-4 h-4 text-blue-600 mr-2" />
-                          <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                            Le linee tratteggiate rappresentano le previsioni
-                          </span>
+                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white dark:border-gray-800 animate-bounce"></div>
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+                        Insights AI del mese
+                      </CardTitle>
+                      <CardDescription className="text-gray-600 dark:text-gray-300 text-sm">
+                        Analisi intelligente basata sulle tue entrate
+                      </CardDescription>
+                    </div>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="relative space-y-4">
+                <div className="flex items-center gap-3">
+                  <Button
+                    onClick={() => {
+                      const monthLabel = format(startDate, 'MMMM yyyy', { locale: it });
+                      generate({
+                        monthLabel,
+                        totalIncome,
+                        totalExpenses,
+                        netIncome,
+                        topCategories: categoryData,
+                        overBudgetCategories,
+                        recurringExpenses,
+                      });
+                    }}
+                    disabled={insightsLoading}
+                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium px-4 py-2 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 text-sm"
+                  >
+                    {insightsLoading ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        Generazione...
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4" />
+                        Genera Insights
+                      </div>
+                    )}
+                  </Button>
+                  {insightsError && (
+                    <div className="flex items-center text-red-600 text-xs">
+                      <AlertCircle className="w-4 h-4 mr-1" /> {insightsError}
+                    </div>
+                  )}
+                </div>
+
+                {/* Render strutturato quando arriva JSON; fallback al testo */}
+                {insightsJson ? (
+                  <div className="space-y-6 animate-in fade-in-50 duration-700">
+                    {/* Totali (se presenti nel JSON) - Mobile responsive */}
+                    {insightsJson.totals && (
+                      <div className="grid grid-cols-1 gap-4">
+                        <div className="group relative overflow-hidden p-4 rounded-2xl bg-gradient-to-br from-emerald-50 to-green-100 dark:from-emerald-900/30 dark:to-green-900/20 border-0 shadow-lg">
+                          <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-500/10 rounded-full -mr-8 -mt-8"></div>
+                          <div className="relative">
+                            <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400 mb-1">Entrate</p>
+                            <p className="text-xl font-bold text-emerald-700 dark:text-emerald-300">{formatCurrency(insightsJson.totals.income)}</p>
+                          </div>
+                        </div>
+                        <div className="group relative overflow-hidden p-4 rounded-2xl bg-gradient-to-br from-rose-50 to-red-100 dark:from-rose-900/30 dark:to-red-900/20 border-0 shadow-lg">
+                          <div className="absolute top-0 right-0 w-16 h-16 bg-rose-500/10 rounded-full -mr-8 -mt-8"></div>
+                          <div className="relative">
+                            <p className="text-sm font-medium text-rose-600 dark:text-rose-400 mb-1">Spese</p>
+                            <p className="text-xl font-bold text-rose-700 dark:text-rose-300">{formatCurrency(insightsJson.totals.expenses)}</p>
+                          </div>
+                        </div>
+                        <div className="group relative overflow-hidden p-4 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/20 border-0 shadow-lg">
+                          <div className="absolute top-0 right-0 w-16 h-16 bg-blue-500/10 rounded-full -mr-8 -mt-8"></div>
+                          <div className="relative">
+                            <p className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-1">Netto</p>
+                            <p className={`text-xl font-bold ${insightsJson.totals.netIncome >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'}`}>{formatCurrency(insightsJson.totals.netIncome)}</p>
+                          </div>
                         </div>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-                        {forecast.map((forecastItem) => (
-                          <Card key={forecastItem.month} className="border-dashed border-2 border-blue-200 dark:border-blue-800">
-                            <CardHeader className="text-center pb-4">
-                              <CardTitle className="text-lg text-blue-900 dark:text-blue-100">
-                                {forecastItem.month}
-                              </CardTitle>
-                              <Badge variant="secondary" className="mx-auto">
-                                <Zap className="w-3 h-3 mr-1" />
-                                Previsione
-                              </Badge>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                              <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                                <div className="flex items-center">
-                                  <ArrowUpCircle className="w-4 h-4 text-green-600 mr-2" />
-                                  <span className="text-sm font-medium">Entrate</span>
+                    )}
+
+                    {/* Suggerimenti - Mobile responsive */}
+                    {insightsJson.suggestions?.length ? (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-6 h-6 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center">
+                            <Lightbulb className="w-3 h-3 text-white" />
+                          </div>
+                          <h4 className="text-base font-bold text-gray-900 dark:text-gray-100">Suggerimenti</h4>
+                        </div>
+                        <div className="space-y-3">
+                          {insightsJson.suggestions.slice(0, 3).map((s, i) => (
+                            <div key={`sg-${i}`} className="p-4 rounded-xl bg-white/60 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 backdrop-blur-sm">
+                              <div className="text-sm text-gray-700 dark:text-gray-300">{s.text}</div>
+                              {typeof s.impactEUR === 'number' && (
+                                <div className="mt-2 text-xs text-blue-600 dark:text-blue-400 font-medium">
+                                  💰 Impatto: {formatCurrency(s.impactEUR)}
                                 </div>
-                                <span className="font-bold text-green-600">
-                                  {formatCurrency(forecastItem.income)}
-                                </span>
-                              </div>
-                              <div className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                                <div className="flex items-center">
-                                  <ArrowDownCircle className="w-4 h-4 text-red-600 mr-2" />
-                                  <span className="text-sm font-medium">Uscite</span>
-                                </div>
-                                <span className="font-bold text-red-600">
-                                  {formatCurrency(forecastItem.expenses)}
-                                </span>
-                              </div>
-                              <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                <span className="text-sm text-gray-600 dark:text-gray-400">Bilancio Previsto</span>
-                                <p className={`font-bold text-lg ${
-                                  forecastItem.income - forecastItem.expenses >= 0 ? 'text-green-600' : 'text-red-600'
-                                }`}>
-                                  {formatCurrency(forecastItem.income - forecastItem.expenses)}
-                                </p>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </>
-                  );
-                })()}
+                    ) : null}
+
+                    {/* Azioni - Mobile responsive */}
+                    {insightsJson.actions?.length ? (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-6 h-6 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center">
+                            <CheckCircle className="w-3 h-3 text-white" />
+                          </div>
+                          <h4 className="text-base font-bold text-gray-900 dark:text-gray-100">Azioni</h4>
+                        </div>
+                        <div className="space-y-3">
+                          {insightsJson.actions.slice(0, 3).map((a, i) => (
+                            <div key={`ac-${i}`} className="p-4 rounded-xl bg-white/60 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 backdrop-blur-sm">
+                              <div className="text-sm text-gray-700 dark:text-gray-300">{a.text}</div>
+                              {typeof a.impactEUR === 'number' && (
+                                <div className="mt-2 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                                  💸 Risparmio: {formatCurrency(a.impactEUR)}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  shouldShowRawInsights && (
+                    <div className="p-4 bg-gray-50 dark:bg-gray-900/40 rounded-lg border border-gray-200 dark:border-gray-700 whitespace-pre-wrap text-sm">
+                      {insights}
+                    </div>
+                  )
+                )}
               </CardContent>
             </Card>
-          </TabsContent>
-
-          <TabsContent value="insights" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Sparkles className="w-5 h-5 mr-2 text-yellow-500" />
-                    Insights Automatici
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {savingsRate > 20 && (
-                    <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                      <div className="flex items-center">
-                        <TrendingUp className="w-5 h-5 text-green-600 mr-2" />
-                        <span className="font-medium text-green-800 dark:text-green-200">
-                          Ottimo tasso di risparmio!
-                        </span>
-                      </div>
-                      <p className="text-sm text-green-700 dark:text-green-300 mt-2">
-                        Stai risparmiando il {savingsRate.toFixed(1)}% delle tue entrate. Continua così!
-                      </p>
-                    </div>
-                  )}
-
-                  {savingsRate < 0 && (
-                    <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
-                      <div className="flex items-center">
-                        <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
-                        <span className="font-medium text-red-800 dark:text-red-200">
-                          Attenzione alle spese
-                        </span>
-                      </div>
-                      <p className="text-sm text-red-700 dark:text-red-300 mt-2">
-                        Le tue spese superano le entrate. Considera di rivedere il budget.
-                      </p>
-                    </div>
-                  )}
-
-                  {categoryData.length > 0 && (
-                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                      <div className="flex items-center">
-                        <PieChartIcon className="w-5 h-5 text-blue-600 mr-2" />
-                        <span className="font-medium text-blue-800 dark:text-blue-200">
-                          Categoria di spesa principale
-                        </span>
-                      </div>
-                      <p className="text-sm text-blue-700 dark:text-blue-300 mt-2">
-                        La maggior parte delle tue spese va in "{categoryData[0]?.name}" 
-                        ({formatCurrency(categoryData[0]?.value)})
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Metriche Chiave</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Media spese mensili:</span>
-                    <span className="text-sm font-semibold">
-                      {formatCurrency(monthlyData.length > 0 ? 
-                        monthlyData.reduce((sum, m) => sum + m.expenses, 0) / monthlyData.length : 0
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Media entrate mensili:</span>
-                    <span className="text-sm font-semibold">
-                      {formatCurrency(monthlyData.length > 0 ? 
-                        monthlyData.reduce((sum, m) => sum + m.income, 0) / monthlyData.length : 0
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Transazioni totali:</span>
-                    <span className="text-sm font-semibold">{filteredTransactions.length}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Categorie attive:</span>
-                    <span className="text-sm font-semibold">{categoryData.length}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
           </TabsContent>
         </Tabs>
         ) : (
@@ -701,7 +730,7 @@ const Analytics: React.FC = () => {
                       📈 Andamento Mensile
                     </CardTitle>
                     <CardDescription className="text-gray-600 dark:text-gray-400 mt-1">
-                      Confronto entrate vs uscite negli ultimi {selectedPeriod} mesi
+                      Confronto entrate vs uscite nel mese selezionato
                     </CardDescription>
                   </div>
                   <Badge variant="secondary" className="bg-blue-100 text-blue-700">
@@ -821,12 +850,12 @@ const Analytics: React.FC = () => {
                               {formatCurrency(category.value)}
                             </div>
                             <div className="text-xs text-gray-500">
-                              {((category.value / totalExpenses) * 100).toFixed(1)}%
+                              {totalExpenses > 0 ? ((category.value / totalExpenses) * 100).toFixed(1) : '0.0'}%
                             </div>
                           </div>
                         </div>
                         <Progress 
-                          value={(category.value / categoryData[0]?.value) * 100} 
+                          value={categoryData[0]?.value ? (category.value / categoryData[0].value) * 100 : 0} 
                           className="h-3"
                           style={{ 
                             backgroundColor: `${colors[index % colors.length]}20`
@@ -839,223 +868,310 @@ const Analytics: React.FC = () => {
               </Card>
             </div>
 
-            {/* Sezione Previsioni (Forecast) */}
-            <Card className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-200 dark:border-blue-800">
-              <CardHeader className="text-center">
-                <div className="mx-auto w-12 h-12 bg-blue-100 dark:bg-blue-900/40 rounded-xl flex items-center justify-center mb-4">
-                  <Brain className="w-6 h-6 text-blue-600" />
-                </div>
-                <CardTitle className="text-blue-900 dark:text-blue-100">
-                  Previsioni Intelligenti
-                </CardTitle>
-                <CardDescription className="text-blue-700 dark:text-blue-300">
-                  Basate sui tuoi pattern di spesa degli ultimi 3 mesi
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {(() => {
-                  if (monthlyData.length < 3) return null;
-                  const lastThreeMonths = monthlyData.slice(-3);
-                  const avgIncome = lastThreeMonths.reduce((sum, m) => sum + m.income, 0) / 3;
-                  const avgExpenses = lastThreeMonths.reduce((sum, m) => sum + m.expenses, 0) / 3;
-                  const forecast = [] as { month: string; income: number; expenses: number; isProjected: boolean }[];
-                  const today = new Date();
-                  for (let i = 1; i <= 3; i++) {
-                    const futureDate = new Date(today.getFullYear(), today.getMonth() + i, 1);
-                    const monthLabel = format(futureDate, 'MMM yyyy', { locale: it });
-                    const incomeVariation = 1 + (Math.random() * 0.2 - 0.1);
-                    const expenseVariation = 1 + (Math.random() * 0.2 - 0.1);
-                    forecast.push({
-                      month: monthLabel,
-                      income: Math.round(avgIncome * incomeVariation),
-                      expenses: Math.round(avgExpenses * expenseVariation),
-                      isProjected: true
-                    });
-                  }
-                  return (
-                    <>
-                      <div className="h-80">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={[...monthlyData, ...forecast]}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                            <XAxis 
-                              dataKey="month" 
-                              tick={{ fontSize: 12, fill: '#64748b' }}
-                              angle={-45}
-                              textAnchor="end"
-                              height={60}
-                            />
-                            <YAxis tick={{ fontSize: 12, fill: '#64748b' }} />
-                            <Tooltip content={<CustomTooltip />} />
-                            <Legend />
-                            <Line
-                              type="monotone"
-                              dataKey="income"
-                              stroke="#10b981"
-                              strokeWidth={3}
-                              name="Entrate"
-                              connectNulls={false}
-                            />
-                            <Line
-                              type="monotone"
-                              dataKey="expenses"
-                              stroke="#ef4444"
-                              strokeWidth={3}
-                              name="Uscite"
-                              connectNulls={false}
-                            />
-                          </LineChart>
-                        </ResponsiveContainer>
+            {/* Sezione Previsioni rimossa */}
+
+            {/* Sezione Insights AI */}
+            <Card className="relative overflow-hidden bg-gradient-to-br from-purple-50/80 via-white to-blue-50/80 dark:from-purple-900/20 dark:via-gray-800 dark:to-blue-900/20 backdrop-blur-sm border-0 shadow-2xl">
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 to-blue-500/5 dark:from-purple-400/10 dark:to-blue-400/10"></div>
+              <CardHeader className="relative">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="relative">
+                      <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                        <Sparkles className="w-6 h-6 text-white animate-pulse" />
                       </div>
-                      <div className="mt-6 text-center">
-                        <div className="inline-flex items-center px-4 py-2 bg-blue-100 dark:bg-blue-900/40 rounded-full">
-                          <Lightbulb className="w-4 h-4 text-blue-600 mr-2" />
-                          <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                            Le linee tratteggiate rappresentano le previsioni
-                          </span>
+                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white dark:border-gray-800 animate-bounce"></div>
+                    </div>
+                    <div>
+                      <CardTitle className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+                        Insights AI del mese
+                      </CardTitle>
+                      <CardDescription className="text-gray-600 dark:text-gray-300">
+                        Analisi intelligente basata sulle tue entrate
+                      </CardDescription>
+                    </div>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="relative space-y-4">
+                <div className="flex items-center gap-3">
+                  <Button
+                    onClick={() => {
+                      const monthLabel = format(startDate, 'MMMM yyyy', { locale: it });
+                      generate({
+                        monthLabel,
+                        totalIncome,
+                        totalExpenses,
+                        netIncome,
+                        topCategories: categoryData,
+                        overBudgetCategories,
+                        recurringExpenses,
+                      });
+                    }}
+                    disabled={insightsLoading}
+                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium px-6 py-2 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+                  >
+                    {insightsLoading ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        Generazione in corso…
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4" />
+                        Genera Insights
+                      </div>
+                    )}
+                  </Button>
+                  {insightsError && (
+                    <div className="flex items-center text-red-600 text-sm">
+                      <AlertCircle className="w-4 h-4 mr-1" /> {insightsError}
+                    </div>
+                  )}
+                </div>
+
+                {/* Render strutturato quando arriva JSON; fallback al testo */}
+                {insightsJson ? (
+                  <div className="space-y-8 animate-in fade-in-50 duration-700">
+                    {/* Totali (se presenti nel JSON) */}
+                    {insightsJson.totals && (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                        <div className="group relative overflow-hidden p-6 rounded-2xl bg-gradient-to-br from-emerald-50 to-green-100 dark:from-emerald-900/30 dark:to-green-900/20 border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                          <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500/10 rounded-full -mr-10 -mt-10"></div>
+                          <div className="relative">
+                            <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400 mb-1">Entrate</p>
+                            <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{formatCurrency(insightsJson.totals.income)}</p>
+                          </div>
+                        </div>
+                        <div className="group relative overflow-hidden p-6 rounded-2xl bg-gradient-to-br from-rose-50 to-red-100 dark:from-rose-900/30 dark:to-red-900/20 border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                          <div className="absolute top-0 right-0 w-20 h-20 bg-rose-500/10 rounded-full -mr-10 -mt-10"></div>
+                          <div className="relative">
+                            <p className="text-sm font-medium text-rose-600 dark:text-rose-400 mb-1">Spese</p>
+                            <p className="text-2xl font-bold text-rose-700 dark:text-rose-300">{formatCurrency(insightsJson.totals.expenses)}</p>
+                          </div>
+                        </div>
+                        <div className="group relative overflow-hidden p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/20 border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                          <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/10 rounded-full -mr-10 -mt-10"></div>
+                          <div className="relative">
+                            <p className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-1">Netto</p>
+                            <p className={`text-2xl font-bold ${insightsJson.totals.netIncome >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'}`}>{formatCurrency(insightsJson.totals.netIncome)}</p>
+                          </div>
                         </div>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-                        {forecast.map((forecastItem) => (
-                          <Card key={forecastItem.month} className="border-dashed border-2 border-blue-200 dark:border-blue-800">
-                            <CardHeader className="text-center pb-4">
-                              <CardTitle className="text-lg text-blue-900 dark:text-blue-100">
-                                {forecastItem.month}
-                              </CardTitle>
-                              <Badge variant="secondary" className="mx-auto">
-                                <Zap className="w-3 h-3 mr-1" />
-                                Previsione
-                              </Badge>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                              <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                                <div className="flex items-center">
-                                  <ArrowUpCircle className="w-4 h-4 text-green-600 mr-2" />
-                                  <span className="text-sm font-medium">Entrate</span>
-                                </div>
-                                <span className="font-bold text-green-600">
-                                  {formatCurrency(forecastItem.income)}
-                                </span>
+                    )}
+
+                    {/* Top Categorie */}
+                    {insightsJson.topCategories?.length ? (
+                      <div className="space-y-3">
+                        <h4 className="font-semibold flex items-center gap-2"><PieChartIcon className="w-4 h-4" />Categorie principali</h4>
+                        <div className="space-y-3">
+                          {insightsJson.topCategories.slice(0,6).map((c, i) => (
+                            <div key={`${c.name}-${i}`} className="space-y-1">
+                              <div className="flex justify-between text-sm">
+                                <span className="font-medium">{c.name}</span>
+                                <span className="text-gray-600 dark:text-gray-400">{formatCurrency(c.value)}</span>
                               </div>
-                              <div className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                                <div className="flex items-center">
-                                  <ArrowDownCircle className="w-4 h-4 text-red-600 mr-2" />
-                                  <span className="text-sm font-medium">Uscite</span>
-                                </div>
-                                <span className="font-bold text-red-600">
-                                  {formatCurrency(forecastItem.expenses)}
-                                </span>
+                              <div className="h-2 bg-gray-100 dark:bg-gray-800 rounded">
+                                <div className="h-2 rounded bg-blue-500" style={{ width: `${Math.min(100, (c.value / (insightsJson.topCategories[0]?.value || 1)) * 100)}%` }} />
                               </div>
-                              <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                <span className="text-sm text-gray-600 dark:text-gray-400">Bilancio Previsto</span>
-                                <p className={`font-bold text-lg ${
-                                  forecastItem.income - forecastItem.expenses >= 0 ? 'text-green-600' : 'text-red-600'
-                                }`}>
-                                  {formatCurrency(forecastItem.income - forecastItem.expenses)}
-                                </p>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </>
-                  );
-                })()}
+                    ) : null}
+
+                    {/* Sforamenti budget */}
+                    {insightsJson.overBudget?.length ? (
+                      <div className="space-y-3">
+                        <h4 className="font-semibold flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-rose-600" />Categorie in sforamento</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {[...insightsJson.overBudget].sort((a,b)=> (b.overPct ?? 0) - (a.overPct ?? 0)).map((o, i) => (
+                            <div key={`${o.name}-${i}`} className="p-3 rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50/60 dark:bg-rose-900/10">
+                              <div className="flex items-center justify-between">
+                                <div className="font-medium">{o.name}</div>
+                                <Badge variant="secondary" className="bg-rose-100 text-rose-700">+{(o.overPct ?? 0).toFixed(1)}%</Badge>
+                              </div>
+                              <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                                Speso {formatCurrency(o.spent)} su budget {formatCurrency(o.budget)}
+                              </div>
+                              {o.tip && (
+                                <div className="text-xs text-rose-700 dark:text-rose-300 mt-1">Consiglio: {o.tip}</div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {/* Anomalie */}
+                    {insightsJson.anomalies?.length ? (
+                      <div className="space-y-2">
+                        <h4 className="font-semibold flex items-center gap-2"><AlertCircle className="w-4 h-4 text-amber-600" />Anomalie</h4>
+                        <ul className="list-disc pl-5 space-y-1 text-sm">
+                          {insightsJson.anomalies.map((a, i) => (
+                            <li key={`an-${i}`}>{a}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+
+                    {/* Suggerimenti */}
+                    {insightsJson.suggestions?.length ? (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center">
+                            <Lightbulb className="w-4 h-4 text-white" />
+                          </div>
+                          <h4 className="text-lg font-bold text-gray-900 dark:text-gray-100">Suggerimenti Intelligenti</h4>
+                        </div>
+                        <div className="grid gap-4">
+                          {[...insightsJson.suggestions]
+                            .sort((a,b)=>{
+                              const p: Record<string, number> = {high:3, medium:2, low:1, alta:3, media:2, bassa:1};
+                              const pa = a.priority ? p[String(a.priority).toLowerCase()] ?? 0 : 0;
+                              const pb = b.priority ? p[String(b.priority).toLowerCase()] ?? 0 : 0;
+                              if (pa !== pb) return pb - pa;
+                              const ia = a.impactEUR ?? 0; const ib = b.impactEUR ?? 0;
+                              return ib - ia;
+                            })
+                            .map((s, i) => {
+                              const pr = String(s.priority || '').toLowerCase();
+                              const priorityColors = {
+                                high: 'from-red-500/20 to-rose-500/20 border-red-200 dark:border-red-800',
+                                alta: 'from-red-500/20 to-rose-500/20 border-red-200 dark:border-red-800',
+                                medium: 'from-amber-500/20 to-yellow-500/20 border-amber-200 dark:border-amber-800',
+                                media: 'from-amber-500/20 to-yellow-500/20 border-amber-200 dark:border-amber-800',
+                                low: 'from-emerald-500/20 to-green-500/20 border-emerald-200 dark:border-emerald-800',
+                                bassa: 'from-emerald-500/20 to-green-500/20 border-emerald-200 dark:border-emerald-800'
+                              };
+                              return (
+                              <div key={`sg-${i}`} className={`group relative overflow-hidden p-5 rounded-2xl bg-gradient-to-br ${priorityColors[pr as keyof typeof priorityColors] || 'from-gray-50 to-gray-100 border-gray-200 dark:border-gray-700'} border backdrop-blur-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5`}>
+                                <div className="flex items-start justify-between gap-4">
+                                  <div className="flex-1 min-w-0">
+                                    {s.title && <div className="font-semibold text-gray-900 dark:text-gray-100 mb-2">{s.title}</div>}
+                                    <div className="text-gray-700 dark:text-gray-300 leading-relaxed">{s.text}</div>
+                                  </div>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    {s.priority && (
+                                      <Badge className={`${pr==='high'||pr==='alta' ? 'bg-red-100 text-red-700 border-red-300' : pr==='medium'||pr==='media' ? 'bg-amber-100 text-amber-700 border-amber-300' : 'bg-emerald-100 text-emerald-700 border-emerald-300'} font-medium`}>
+                                        {String(s.priority)}
+                                      </Badge>
+                                    )}
+                                    <Button variant="ghost" size="sm" className="h-8 w-8 hover:bg-white/50 dark:hover:bg-gray-800/50" onClick={() => handleCopy(`${s.title ? s.title+': ' : ''}${s.text}`)} aria-label="Copia suggerimento">
+                                      <Copy className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-4 mt-4">
+                                  {typeof s.impactEUR === 'number' && (
+                                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/60 dark:bg-gray-800/60 border border-blue-200 dark:border-blue-800">
+                                      <DollarSign className="w-4 h-4 text-blue-600" />
+                                      <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                                        Impatto: {formatCurrency(s.impactEUR)}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                                {s.evidence && (
+                                  <div className="mt-3 p-3 rounded-lg bg-white/40 dark:bg-gray-800/40 border border-gray-200/50 dark:border-gray-700/50">
+                                    <div className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400">
+                                      <Info className="w-4 h-4 mt-0.5 text-blue-500" />
+                                      <span>{s.evidence}</span>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )})}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {/* Azioni consigliate */}
+                    {insightsJson.actions?.length ? (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center">
+                            <CheckCircle className="w-4 h-4 text-white" />
+                          </div>
+                          <h4 className="text-lg font-bold text-gray-900 dark:text-gray-100">Azioni Immediate</h4>
+                        </div>
+                        <div className="grid gap-4">
+                          {[...insightsJson.actions]
+                            .sort((a,b)=>{
+                              const p: Record<string, number> = {high:3, medium:2, low:1, alta:3, media:2, bassa:1};
+                              const pa = a.priority ? p[String(a.priority).toLowerCase()] ?? 0 : 0;
+                              const pb = b.priority ? p[String(b.priority).toLowerCase()] ?? 0 : 0;
+                              if (pa !== pb) return pb - pa;
+                              const ia = a.impactEUR ?? 0; const ib = b.impactEUR ?? 0;
+                              return ib - ia;
+                            })
+                            .map((a, i) => {
+                              const pr = String(a.priority || '').toLowerCase();
+                              const priorityColors = {
+                                high: 'from-red-500/20 to-rose-500/20 border-red-200 dark:border-red-800',
+                                alta: 'from-red-500/20 to-rose-500/20 border-red-200 dark:border-red-800',
+                                medium: 'from-amber-500/20 to-yellow-500/20 border-amber-200 dark:border-amber-800',
+                                media: 'from-amber-500/20 to-yellow-500/20 border-amber-200 dark:border-amber-800',
+                                low: 'from-emerald-500/20 to-green-500/20 border-emerald-200 dark:border-emerald-800',
+                                bassa: 'from-emerald-500/20 to-green-500/20 border-emerald-200 dark:border-emerald-800'
+                              };
+                              return (
+                              <div key={`ac-${i}`} className={`group relative overflow-hidden p-5 rounded-2xl bg-gradient-to-br ${priorityColors[pr as keyof typeof priorityColors] || 'from-gray-50 to-gray-100 border-gray-200 dark:border-gray-700'} border backdrop-blur-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5`}>
+                                <div className="flex items-start justify-between gap-4">
+                                  <div className="flex-1 min-w-0">
+                                    {a.title && <div className="font-semibold text-gray-900 dark:text-gray-100 mb-2">{a.title}</div>}
+                                    <div className="text-gray-700 dark:text-gray-300 leading-relaxed">{a.text}</div>
+                                  </div>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    {a.priority && (
+                                      <Badge className={`${pr==='high'||pr==='alta' ? 'bg-red-100 text-red-700 border-red-300' : pr==='medium'||pr==='media' ? 'bg-amber-100 text-amber-700 border-amber-300' : 'bg-emerald-100 text-emerald-700 border-emerald-300'} font-medium`}>
+                                        {String(a.priority)}
+                                      </Badge>
+                                    )}
+                                    <Button variant="ghost" size="sm" className="h-8 w-8 hover:bg-white/50 dark:hover:bg-gray-800/50" onClick={() => handleCopy(`${a.title ? a.title+': ' : ''}${a.text}`)} aria-label="Copia azione">
+                                      <Copy className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-4 mt-4">
+                                  {typeof a.impactEUR === 'number' && (
+                                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/60 dark:bg-gray-800/60 border border-emerald-200 dark:border-emerald-800">
+                                      <DollarSign className="w-4 h-4 text-emerald-600" />
+                                      <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                                        Risparmio: {formatCurrency(a.impactEUR)}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                                {a.evidence && (
+                                  <div className="mt-3 p-3 rounded-lg bg-white/40 dark:bg-gray-800/40 border border-gray-200/50 dark:border-gray-700/50">
+                                    <div className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400">
+                                      <Info className="w-4 h-4 mt-0.5 text-emerald-500" />
+                                      <span>{a.evidence}</span>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )})}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  shouldShowRawInsights && (
+                    <div className="p-4 bg-gray-50 dark:bg-gray-900/40 rounded-lg border border-gray-200 dark:border-gray-700 whitespace-pre-wrap text-sm">
+                      {insights}
+                    </div>
+                  )
+                )}
               </CardContent>
             </Card>
-
-            {/* Sezione Insights */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Sparkles className="w-5 h-5 mr-2 text-yellow-500" />
-                    Insights Automatici
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {savingsRate > 20 && (
-                    <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                      <div className="flex items-center">
-                        <TrendingUp className="w-5 h-5 text-green-600 mr-2" />
-                        <span className="font-medium text-green-800 dark:text-green-200">
-                          Ottimo tasso di risparmio!
-                        </span>
-                      </div>
-                      <p className="text-sm text-green-700 dark:text-green-300 mt-2">
-                        Stai risparmiando il {savingsRate.toFixed(1)}% delle tue entrate. Continua così!
-                      </p>
-                    </div>
-                  )}
-
-                  {savingsRate < 0 && (
-                    <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
-                      <div className="flex items-center">
-                        <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
-                        <span className="font-medium text-red-800 dark:text-red-200">
-                          Attenzione alle spese
-                        </span>
-                      </div>
-                      <p className="text-sm text-red-700 dark:text-red-300 mt-2">
-                        Le tue spese superano le entrate. Considera di rivedere il budget.
-                      </p>
-                    </div>
-                  )}
-
-                  {categoryData.length > 0 && (
-                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                      <div className="flex items-center">
-                        <PieChartIcon className="w-5 h-5 text-blue-600 mr-2" />
-                        <span className="font-medium text-blue-800 dark:text-blue-200">
-                          Categoria di spesa principale
-                        </span>
-                      </div>
-                      <p className="text-sm text-blue-700 dark:text-blue-300 mt-2">
-                        La maggior parte delle tue spese va in "{categoryData[0]?.name}"
-                        ({formatCurrency(categoryData[0]?.value)})
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Metriche Chiave</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Media spese mensili:</span>
-                    <span className="text-sm font-semibold">
-                      {formatCurrency(monthlyData.length > 0 ? 
-                        monthlyData.reduce((sum, m) => sum + m.expenses, 0) / monthlyData.length : 0
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Media entrate mensili:</span>
-                    <span className="text-sm font-semibold">
-                      {formatCurrency(monthlyData.length > 0 ? 
-                        monthlyData.reduce((sum, m) => sum + m.income, 0) / monthlyData.length : 0
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Transazioni totali:</span>
-                    <span className="text-sm font-semibold">{filteredTransactions.length}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Categorie attive:</span>
-                    <span className="text-sm font-semibold">{categoryData.length}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            {/* Sezione Insights nascosta (rimossa) */}
           </div>
         )}
       </div>
     </Layout>
   );
-};
+  };
 
-export default Analytics;
+  export default Analytics;
