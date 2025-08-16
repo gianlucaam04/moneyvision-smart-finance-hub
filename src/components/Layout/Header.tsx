@@ -30,7 +30,7 @@ const Header: React.FC<HeaderProps> = ({ title, icon, className }) => {
           <h1 className="text-xl font-bold text-gray-900 dark:text-white truncate">
             {title ? (
               <div className="flex items-center gap-2 min-w-0">
-                {icon && <span className="text-finance-blue flex-shrink-0">{icon}</span>}
+                {icon && <span className="text-brand-primary flex-shrink-0">{icon}</span>}
                 <span className="truncate">{title}</span>
               </div>
             ) : (
@@ -44,7 +44,7 @@ const Header: React.FC<HeaderProps> = ({ title, icon, className }) => {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                 <Avatar className="h-10 w-10">
-                  <AvatarFallback className="bg-finance-blue text-white">
+                  <AvatarFallback className="bg-brand-primary text-white">
                     {getUserDisplayName().charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>

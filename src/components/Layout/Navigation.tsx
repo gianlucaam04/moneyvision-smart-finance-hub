@@ -52,7 +52,7 @@ const Navigation: React.FC<NavigationProps> = ({ className }) => {
               className={({ isActive }) =>
                 cn(
                   'flex flex-col items-center justify-center transition-all duration-200 relative w-16',
-                  isActive ? 'text-finance-blue dark:text-finance-blue' : 'text-gray-400 dark:text-gray-500'
+                  isActive ? 'text-brand-primary dark:text-brand-secondary' : 'text-gray-400 dark:text-gray-500'
                 )
               }
             >
@@ -68,7 +68,7 @@ const Navigation: React.FC<NavigationProps> = ({ className }) => {
           {/* Menu hamburger per le voci aggiuntive */}
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="ghost" className="flex flex-col items-center justify-center transition-all duration-200 w-16 text-gray-400 dark:text-gray-500 hover:text-finance-blue dark:hover:text-finance-blue relative">
+              <Button variant="ghost" className="flex flex-col items-center justify-center transition-all duration-200 w-16 text-gray-400 dark:text-gray-500 hover:text-brand-primary dark:hover:text-brand-secondary relative">
                 <div className="relative">
                   <Menu className="h-6 w-6" />
                 </div>
@@ -86,7 +86,7 @@ const Navigation: React.FC<NavigationProps> = ({ className }) => {
                         'flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200',
                         'hover:bg-gray-100 dark:hover:bg-gray-800',
                         'text-gray-700 dark:text-gray-300',
-                        isActive && 'bg-finance-blue/10 text-finance-blue dark:bg-finance-blue/20 border-l-4 border-finance-blue'
+                        isActive && 'bg-brand-primary/10 text-brand-primary dark:bg-brand-secondary/20 border-l-4 border-brand-primary'
                       )
                     }
                   >
@@ -114,7 +114,7 @@ const Navigation: React.FC<NavigationProps> = ({ className }) => {
               'flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200',
               'hover:bg-gray-100 dark:hover:bg-gray-800',
               'text-gray-700 dark:text-gray-300',
-              isActive && 'bg-finance-blue/10 text-finance-blue dark:bg-finance-blue/20 border-l-4 border-finance-blue'
+              isActive && 'bg-brand-primary/10 text-brand-primary dark:bg-brand-secondary/20 border-l-4 border-brand-primary'
             )
           }
         >
@@ -145,12 +145,12 @@ const Navigation: React.FC<NavigationProps> = ({ className }) => {
                     'flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200',
                     'hover:bg-gray-100 dark:hover:bg-gray-800',
                     'text-gray-700 dark:text-gray-300',
-                    isActive && 'bg-finance-blue/10 text-finance-blue dark:bg-finance-blue/20 border-l-4 border-finance-blue'
+                    isActive && 'bg-brand-primary/10 text-brand-primary dark:bg-brand-secondary/20 border-l-4 border-brand-primary'
                   )
                 }
               >
-                <item.iconComponent className="h-5 w-5 text-finance-blue" />
-                <span className="font-medium text-finance-blue">{item.label}</span>
+                <item.iconComponent className="h-5 w-5 text-brand-primary" />
+                <span className="font-medium text-brand-primary">{item.label}</span>
               </NavLink>
             ))}
           </nav>

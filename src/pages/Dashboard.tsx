@@ -22,25 +22,25 @@ const Dashboard: React.FC = () => {
       title: 'Nuova Transazione',
       icon: Plus,
       onClick: () => navigate('/transactions'),
-      color: 'bg-blue-500',
+      color: 'bg-brand-primary',
     },
     {
       title: 'Nuovo Obiettivo',
       icon: Target,
       onClick: () => navigate('/goals'),
-      color: 'bg-green-500',
+      color: 'bg-brand-secondary',
     },
     {
       title: 'Analisi',
       icon: BarChart3,
       onClick: () => navigate('/analytics'),
-      color: 'bg-purple-500',
+      color: 'bg-brand-accent',
     },
     {
       title: 'Investimenti',
       icon: TrendingUp,
       onClick: () => navigate('/investments'),
-      color: 'bg-orange-500',
+      color: 'bg-gradient-to-r from-brand-primary to-brand-secondary',
     },
   ];
 
@@ -69,11 +69,11 @@ const Dashboard: React.FC = () => {
       <Layout>
         <div className="space-y-4">
           {/* Mobile Header - Compatto */}
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-4 text-white">
+          <div className="bg-gradient-to-r from-brand-primary to-brand-secondary rounded-xl p-4 text-white">
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-xl font-bold">Ciao! 👋</h1>
-                <p className="text-blue-100 text-sm">
+                <p className="text-brand-light text-sm">
                   {new Date().toLocaleDateString('it-IT', { 
                     weekday: 'long', 
                     day: 'numeric',
@@ -83,7 +83,7 @@ const Dashboard: React.FC = () => {
               </div>
               {todayExpenses > 0 && (
                 <div className="text-right">
-                  <div className="text-xs text-blue-200">Spese oggi</div>
+                  <div className="text-xs text-brand-light">Spese oggi</div>
                   <div className="text-lg font-bold">{formatCurrency(todayExpenses)}</div>
                 </div>
               )}
@@ -123,7 +123,7 @@ const Dashboard: React.FC = () => {
                   <div className="text-lg font-bold text-red-600">{formatCurrency(summary.totalExpenses)}</div>
                 </div>
               </div>
-              <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <div className="text-center p-3 bg-brand-light dark:bg-brand-accent/20 rounded-lg">
                 <div className="text-xs text-gray-600 dark:text-gray-400">Bilancio Mensile</div>
                 <div className={`text-xl font-bold ${summary.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {formatCurrency(summary.balance)}
@@ -136,7 +136,7 @@ const Dashboard: React.FC = () => {
           <div className="grid grid-cols-2 gap-3">
             <Card className="text-center">
               <CardContent className="p-4">
-                <div className="text-2xl font-bold text-blue-600">{thisMonthTransactions.length}</div>
+                <div className="text-2xl font-bold text-brand-primary">{thisMonthTransactions.length}</div>
                 <div className="text-xs text-gray-600 dark:text-gray-400">Transazioni mese</div>
               </CardContent>
             </Card>
@@ -178,7 +178,7 @@ const Dashboard: React.FC = () => {
     <Layout>
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header Hero Section */}
-        <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 rounded-2xl p-8 text-white relative overflow-hidden">
+        <div className="bg-gradient-to-r from-brand-primary via-brand-secondary to-brand-accent rounded-2xl p-8 text-white relative overflow-hidden">
           <div className="absolute inset-0 bg-black/10"></div>
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-32 translate-x-32"></div>
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-24 -translate-x-24"></div>
@@ -194,7 +194,7 @@ const Dashboard: React.FC = () => {
                     <h1 className="text-4xl font-bold">
                       Benvenuto nel tuo Dashboard 🏠
                     </h1>
-                    <p className="text-blue-100 text-lg mt-1">
+                    <p className="text-brand-light text-lg mt-1">
                       Ecco una panoramica delle tue finanze di oggi
                     </p>
                   </div>
@@ -222,7 +222,7 @@ const Dashboard: React.FC = () => {
                 <div className="text-6xl font-bold opacity-20">
                   {new Date().getDate()}
                 </div>
-                <div className="text-sm text-blue-200">
+                <div className="text-sm text-brand-light">
                   {new Date().toLocaleDateString('it-IT', { 
                     year: 'numeric', 
                     month: 'long'
@@ -240,8 +240,8 @@ const Dashboard: React.FC = () => {
         <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-xl">
           <CardHeader className="pb-6">
             <CardTitle className="text-2xl font-semibold flex items-center gap-3">
-              <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-                <Sparkles className="w-5 h-5 text-blue-600" />
+              <div className="p-2 bg-brand-light dark:bg-brand-accent/20 rounded-lg">
+                <Sparkles className="w-5 h-5 text-brand-primary" />
               </div>
               Azioni Rapide
             </CardTitle>

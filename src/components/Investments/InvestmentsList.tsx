@@ -239,7 +239,7 @@ const InvestmentsList: React.FC<InvestmentsListProps> = ({
                       variant="ghost"
                       size="sm"
                       onClick={() => onEdit ? onEdit(investment) : null}
-                      className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 md:opacity-0 md:group-hover:opacity-100 transition-all duration-200 h-9 w-9 p-0"
+                      className="text-brand-primary hover:text-brand-primary/80 hover:bg-brand-light/30 dark:hover:bg-brand-primary/20 md:opacity-0 md:group-hover:opacity-100 transition-all duration-200 h-9 w-9 p-0"
                       aria-label="Modifica investimento"
                     >
                       <TrendingUp size={16} />

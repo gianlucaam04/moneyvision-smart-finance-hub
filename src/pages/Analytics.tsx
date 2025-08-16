@@ -291,18 +291,18 @@ const Analytics: React.FC = () => {
     <Layout>
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header desktop */}
-        <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-blue-800 rounded-2xl p-6 text-white">
+        <div className="bg-gradient-to-r from-brand-primary via-brand-secondary to-brand-accent rounded-2xl p-6 text-white">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div className="space-y-2">
               <h1 className="text-4xl font-bold">
                 📊 Analisi Finanziarie
               </h1>
-              <p className="text-blue-100 text-lg">
+              <p className="text-brand-light text-lg">
                 Analisi del mese: {format(startDate, 'MMMM yyyy', { locale: it })}
               </p>
               <div className="flex items-center gap-2 mt-4">
                 <Calendar className="w-4 h-4" />
-                <span className="text-sm text-blue-200">
+                <span className="text-sm text-brand-light/80">
                   Seleziona un mese specifico
                 </span>
               </div>
@@ -317,10 +317,9 @@ const Analytics: React.FC = () => {
                   type="month"
                   value={selectedMonth}
                   onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="rounded-full bg-white/15 border border-white/25 px-4 py-2 text-white placeholder-white/70 shadow-sm backdrop-blur-sm hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/60 focus:border-white/60 transition"
+                  className="rounded-full bg-white/15 border border-white/25 px-4 py-2 text-white placeholder-white/70 shadow-sm backdrop-blur-sm hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-brand-light/60 focus:border-brand-light/60 transition"
                 />
               </div>
-              <span className="text-sm text-blue-100/90">Mese corrente: {format(startDate, 'MMMM yyyy', { locale: it })}</span>
             </div>
           </div>
         </div>
@@ -363,37 +362,37 @@ const Analytics: React.FC = () => {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-blue-50 to-cyan-100 dark:from-blue-900/20 dark:to-cyan-900/30 border-blue-200 dark:border-blue-800 hover:shadow-lg transition-all duration-300">
+          <Card className="bg-gradient-to-br from-brand-light/30 to-brand-primary/20 dark:from-brand-primary/20 dark:to-brand-secondary/30 border-brand-primary/30 dark:border-brand-primary/50 hover:shadow-lg transition-all duration-300">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div className="space-y-2">
-                  <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                  <p className="text-sm font-medium text-brand-primary dark:text-brand-light">
                     Bilancio Netto
                   </p>
                   <p className={`text-3xl font-bold ${netIncome >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     {formatCurrency(netIncome)}
                   </p>
                 </div>
-                <div className="p-3 bg-blue-500/20 rounded-full">
-                  <DollarSign className="h-6 w-6 text-blue-600" />
+                <div className="p-3 bg-brand-primary/20 rounded-full">
+                  <DollarSign className="h-6 w-6 text-brand-primary" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-purple-50 to-violet-100 dark:from-purple-900/20 dark:to-violet-900/30 border-purple-200 dark:border-purple-800 hover:shadow-lg transition-all duration-300">
+          <Card className="bg-gradient-to-br from-brand-secondary/30 to-brand-accent/20 dark:from-brand-secondary/20 dark:to-brand-accent/30 border-brand-secondary/30 dark:border-brand-secondary/50 hover:shadow-lg transition-all duration-300">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div className="space-y-2">
-                  <p className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                  <p className="text-sm font-medium text-brand-secondary dark:text-brand-light">
                     Tasso Risparmio
                   </p>
                   <p className={`text-3xl font-bold ${savingsRate >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     {savingsRate.toFixed(1)}%
                   </p>
                 </div>
-                <div className="p-3 bg-purple-500/20 rounded-full">
-                  <Target className="h-6 w-6 text-purple-600" />
+                <div className="p-3 bg-brand-secondary/20 rounded-full">
+                  <Target className="h-6 w-6 text-brand-secondary" />
                 </div>
               </div>
             </CardContent>
@@ -404,15 +403,15 @@ const Analytics: React.FC = () => {
         {isMobile ? (
         <Tabs defaultValue="trends" className="space-y-6">
           <TabsList className="grid w-full grid-cols-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-1">
-            <TabsTrigger value="trends" className="rounded-lg data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700">
+            <TabsTrigger value="trends" className="rounded-lg data-[state=active]:bg-brand-light/50 data-[state=active]:text-brand-primary">
               <BarChart3 className="w-4 h-4 mr-2" />
               Tendenze
             </TabsTrigger>
-            <TabsTrigger value="categories" className="rounded-lg data-[state=active]:bg-green-100 data-[state=active]:text-green-700">
+            <TabsTrigger value="categories" className="rounded-lg data-[state=active]:bg-brand-light/50 data-[state=active]:text-brand-secondary">
               <PieChartIcon className="w-4 h-4 mr-2" />
               Categorie
             </TabsTrigger>
-            <TabsTrigger value="insights" className="rounded-lg data-[state=active]:bg-indigo-100 data-[state=active]:text-indigo-700">
+            <TabsTrigger value="insights" className="rounded-lg data-[state=active]:bg-brand-light/50 data-[state=active]:text-brand-accent">
               <Sparkles className="w-4 h-4 mr-2" />
               Insights AI
             </TabsTrigger>
@@ -571,19 +570,19 @@ const Analytics: React.FC = () => {
 
           {/* TabsContent per Insights AI (mobile) */}
           <TabsContent value="insights" className="space-y-6">
-            <Card className="relative overflow-hidden bg-gradient-to-br from-purple-50/80 via-white to-blue-50/80 dark:from-purple-900/20 dark:via-gray-800 dark:to-blue-900/20 backdrop-blur-sm border-0 shadow-2xl">
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 to-blue-500/5 dark:from-purple-400/10 dark:to-blue-400/10"></div>
+            <Card className="relative overflow-hidden bg-gradient-to-br from-brand-light/30 via-white to-brand-primary/20 dark:from-brand-primary/20 dark:via-gray-800 dark:to-brand-secondary/20 backdrop-blur-sm border-0 shadow-2xl">
+              <div className="absolute inset-0 bg-gradient-to-r from-brand-primary/5 to-brand-secondary/5 dark:from-brand-primary/10 dark:to-brand-secondary/10"></div>
               <CardHeader className="relative">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
                     <div className="relative">
-                      <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                      <div className="w-12 h-12 bg-gradient-to-br from-brand-primary to-brand-secondary rounded-xl flex items-center justify-center shadow-lg">
                         <Sparkles className="w-6 h-6 text-white animate-pulse" />
                       </div>
                       <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white dark:border-gray-800 animate-bounce"></div>
                     </div>
                     <div>
-                      <CardTitle className="text-lg font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+                      <CardTitle className="text-lg font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
                         Insights AI del mese
                       </CardTitle>
                       <CardDescription className="text-gray-600 dark:text-gray-300 text-sm">
@@ -609,7 +608,7 @@ const Analytics: React.FC = () => {
                       });
                     }}
                     disabled={insightsLoading}
-                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium px-4 py-2 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 text-sm"
+                    className="bg-gradient-to-r from-brand-primary to-brand-secondary hover:from-brand-primary/90 hover:to-brand-secondary/90 text-white font-medium px-4 py-2 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 text-sm"
                   >
                     {insightsLoading ? (
                       <div className="flex items-center gap-2">
@@ -650,10 +649,10 @@ const Analytics: React.FC = () => {
                             <p className="text-xl font-bold text-rose-700 dark:text-rose-300">{formatCurrency(insightsJson.totals.expenses)}</p>
                           </div>
                         </div>
-                        <div className="group relative overflow-hidden p-4 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/20 border-0 shadow-lg">
-                          <div className="absolute top-0 right-0 w-16 h-16 bg-blue-500/10 rounded-full -mr-8 -mt-8"></div>
+                        <div className="group relative overflow-hidden p-4 rounded-2xl bg-gradient-to-br from-brand-light/30 to-brand-primary/20 dark:from-brand-primary/30 dark:to-brand-secondary/20 border-0 shadow-lg">
+                          <div className="absolute top-0 right-0 w-16 h-16 bg-brand-primary/10 rounded-full -mr-8 -mt-8"></div>
                           <div className="relative">
-                            <p className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-1">Netto</p>
+                            <p className="text-sm font-medium text-brand-primary dark:text-brand-light mb-1">Netto</p>
                             <p className={`text-xl font-bold ${insightsJson.totals.netIncome >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'}`}>{formatCurrency(insightsJson.totals.netIncome)}</p>
                           </div>
                         </div>
@@ -664,7 +663,7 @@ const Analytics: React.FC = () => {
                     {insightsJson.suggestions?.length ? (
                       <div className="space-y-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-6 h-6 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center">
+                          <div className="w-6 h-6 bg-gradient-to-br from-brand-primary to-brand-secondary rounded-lg flex items-center justify-center">
                             <Lightbulb className="w-3 h-3 text-white" />
                           </div>
                           <h4 className="text-base font-bold text-gray-900 dark:text-gray-100">Suggerimenti</h4>
@@ -674,7 +673,7 @@ const Analytics: React.FC = () => {
                             <div key={`sg-${i}`} className="p-4 rounded-xl bg-white/60 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 backdrop-blur-sm">
                               <div className="text-sm text-gray-700 dark:text-gray-300">{s.text}</div>
                               {typeof s.impactEUR === 'number' && (
-                                <div className="mt-2 text-xs text-blue-600 dark:text-blue-400 font-medium">
+                                <div className="mt-2 text-xs text-brand-primary dark:text-brand-light font-medium">
                                   💰 Impatto: {formatCurrency(s.impactEUR)}
                                 </div>
                               )}
@@ -871,19 +870,19 @@ const Analytics: React.FC = () => {
             {/* Sezione Previsioni rimossa */}
 
             {/* Sezione Insights AI */}
-            <Card className="relative overflow-hidden bg-gradient-to-br from-purple-50/80 via-white to-blue-50/80 dark:from-purple-900/20 dark:via-gray-800 dark:to-blue-900/20 backdrop-blur-sm border-0 shadow-2xl">
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 to-blue-500/5 dark:from-purple-400/10 dark:to-blue-400/10"></div>
+            <Card className="relative overflow-hidden bg-gradient-to-br from-brand-light/30 via-white to-brand-primary/20 dark:from-brand-primary/20 dark:via-gray-800 dark:to-brand-secondary/20 backdrop-blur-sm border-0 shadow-2xl">
+              <div className="absolute inset-0 bg-gradient-to-r from-brand-primary/5 to-brand-secondary/5 dark:from-brand-primary/10 dark:to-brand-secondary/10"></div>
               <CardHeader className="relative">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div className="relative">
-                      <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                      <div className="w-12 h-12 bg-gradient-to-br from-brand-primary to-brand-secondary rounded-xl flex items-center justify-center shadow-lg">
                         <Sparkles className="w-6 h-6 text-white animate-pulse" />
                       </div>
                       <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white dark:border-gray-800 animate-bounce"></div>
                     </div>
                     <div>
-                      <CardTitle className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+                      <CardTitle className="text-xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
                         Insights AI del mese
                       </CardTitle>
                       <CardDescription className="text-gray-600 dark:text-gray-300">
@@ -909,7 +908,7 @@ const Analytics: React.FC = () => {
                       });
                     }}
                     disabled={insightsLoading}
-                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium px-6 py-2 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+                    className="bg-gradient-to-r from-brand-primary to-brand-secondary hover:from-brand-primary/90 hover:to-brand-secondary/90 text-white font-medium px-6 py-2 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
                   >
                     {insightsLoading ? (
                       <div className="flex items-center gap-2">
@@ -950,10 +949,10 @@ const Analytics: React.FC = () => {
                             <p className="text-2xl font-bold text-rose-700 dark:text-rose-300">{formatCurrency(insightsJson.totals.expenses)}</p>
                           </div>
                         </div>
-                        <div className="group relative overflow-hidden p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/20 border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                          <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/10 rounded-full -mr-10 -mt-10"></div>
+                        <div className="group relative overflow-hidden p-6 rounded-2xl bg-gradient-to-br from-brand-light/30 to-brand-primary/20 dark:from-brand-primary/30 dark:to-brand-secondary/20 border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                          <div className="absolute top-0 right-0 w-20 h-20 bg-brand-primary/10 rounded-full -mr-10 -mt-10"></div>
                           <div className="relative">
-                            <p className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-1">Netto</p>
+                            <p className="text-sm font-medium text-brand-primary dark:text-brand-light mb-1">Netto</p>
                             <p className={`text-2xl font-bold ${insightsJson.totals.netIncome >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'}`}>{formatCurrency(insightsJson.totals.netIncome)}</p>
                           </div>
                         </div>
@@ -972,7 +971,7 @@ const Analytics: React.FC = () => {
                                 <span className="text-gray-600 dark:text-gray-400">{formatCurrency(c.value)}</span>
                               </div>
                               <div className="h-2 bg-gray-100 dark:bg-gray-800 rounded">
-                                <div className="h-2 rounded bg-blue-500" style={{ width: `${Math.min(100, (c.value / (insightsJson.topCategories[0]?.value || 1)) * 100)}%` }} />
+                                <div className="h-2 rounded bg-brand-primary" style={{ width: `${Math.min(100, (c.value / (insightsJson.topCategories[0]?.value || 1)) * 100)}%` }} />
                               </div>
                             </div>
                           ))}
@@ -1019,7 +1018,7 @@ const Analytics: React.FC = () => {
                     {insightsJson.suggestions?.length ? (
                       <div className="space-y-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center">
+                          <div className="w-8 h-8 bg-gradient-to-br from-brand-primary to-brand-secondary rounded-lg flex items-center justify-center">
                             <Lightbulb className="w-4 h-4 text-white" />
                           </div>
                           <h4 className="text-lg font-bold text-gray-900 dark:text-gray-100">Suggerimenti Intelligenti</h4>
@@ -1064,9 +1063,9 @@ const Analytics: React.FC = () => {
                                 </div>
                                 <div className="flex items-center gap-4 mt-4">
                                   {typeof s.impactEUR === 'number' && (
-                                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/60 dark:bg-gray-800/60 border border-blue-200 dark:border-blue-800">
-                                      <DollarSign className="w-4 h-4 text-blue-600" />
-                                      <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/60 dark:bg-gray-800/60 border border-brand-primary/30 dark:border-brand-primary/50">
+                                      <DollarSign className="w-4 h-4 text-brand-primary" />
+                                      <span className="text-sm font-medium text-brand-primary dark:text-brand-light">
                                         Impatto: {formatCurrency(s.impactEUR)}
                                       </span>
                                     </div>
@@ -1075,7 +1074,7 @@ const Analytics: React.FC = () => {
                                 {s.evidence && (
                                   <div className="mt-3 p-3 rounded-lg bg-white/40 dark:bg-gray-800/40 border border-gray-200/50 dark:border-gray-700/50">
                                     <div className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400">
-                                      <Info className="w-4 h-4 mt-0.5 text-blue-500" />
+                                      <Info className="w-4 h-4 mt-0.5 text-brand-primary" />
                                       <span>{s.evidence}</span>
                                     </div>
                                   </div>
@@ -1090,7 +1089,7 @@ const Analytics: React.FC = () => {
                     {insightsJson.actions?.length ? (
                       <div className="space-y-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center">
+                          <div className="w-8 h-8 bg-gradient-to-br from-brand-secondary to-brand-accent rounded-lg flex items-center justify-center">
                             <CheckCircle className="w-4 h-4 text-white" />
                           </div>
                           <h4 className="text-lg font-bold text-gray-900 dark:text-gray-100">Azioni Immediate</h4>
@@ -1135,9 +1134,9 @@ const Analytics: React.FC = () => {
                                 </div>
                                 <div className="flex items-center gap-4 mt-4">
                                   {typeof a.impactEUR === 'number' && (
-                                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/60 dark:bg-gray-800/60 border border-emerald-200 dark:border-emerald-800">
-                                      <DollarSign className="w-4 h-4 text-emerald-600" />
-                                      <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/60 dark:bg-gray-800/60 border border-brand-secondary/30 dark:border-brand-secondary/50">
+                                      <DollarSign className="w-4 h-4 text-brand-secondary" />
+                                      <span className="text-sm font-medium text-brand-secondary dark:text-brand-light">
                                         Risparmio: {formatCurrency(a.impactEUR)}
                                       </span>
                                     </div>
@@ -1146,7 +1145,7 @@ const Analytics: React.FC = () => {
                                 {a.evidence && (
                                   <div className="mt-3 p-3 rounded-lg bg-white/40 dark:bg-gray-800/40 border border-gray-200/50 dark:border-gray-700/50">
                                     <div className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400">
-                                      <Info className="w-4 h-4 mt-0.5 text-emerald-500" />
+                                      <Info className="w-4 h-4 mt-0.5 text-brand-secondary" />
                                       <span>{a.evidence}</span>
                                     </div>
                                   </div>

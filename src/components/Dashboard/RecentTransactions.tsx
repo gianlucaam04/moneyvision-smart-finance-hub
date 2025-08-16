@@ -33,7 +33,7 @@ const RecentTransactions: React.FC = () => {
           variant="outline" 
           size="sm" 
           onClick={() => navigate('/transactions')}
-          className="hover:bg-finance-blue hover:text-white transition-colors duration-200"
+          className="hover:bg-brand-primary hover:text-white transition-colors duration-200"
         >
           Vedi tutte
         </Button>

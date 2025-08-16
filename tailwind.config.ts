@@ -89,6 +89,17 @@ export default {
 					green: '#10B981',
 					purple: '#8B5CF6',
 					orange: '#F59E0B'
+				},
+				// MoneyVision Brand Colors (dal logo)
+				brand: {
+					primary: '#2D7D7D',    // Verde/teal principale del logo
+					secondary: '#4A9B9B',  // Verde più chiaro
+					accent: '#1F5F5F',     // Verde più scuro
+					light: '#E6F3F3',      // Verde molto chiaro per backgrounds
+					gradient: {
+						from: '#2D7D7D',
+						to: '#4A9B9B'
+					}
 				}
 			},
 			borderRadius: {

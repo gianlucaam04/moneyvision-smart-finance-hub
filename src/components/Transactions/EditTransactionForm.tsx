@@ -203,7 +203,7 @@ const EditTransactionForm: React.FC<EditTransactionFormProps> = ({ transaction, 
           {/* Submit Button */}
           <Button 
             type="submit" 
-            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium transition-all duration-200"
+            className="w-full bg-gradient-to-r from-brand-primary to-brand-secondary hover:from-brand-primary/90 hover:to-brand-secondary/90 text-white font-medium transition-all duration-200"
             disabled={isSubmitting}
           >
             {isSubmitting ? 'Salvataggio…' : 'Salva Modifiche'}

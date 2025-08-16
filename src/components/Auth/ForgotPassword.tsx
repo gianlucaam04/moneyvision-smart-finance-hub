@@ -43,29 +43,36 @@ const ForgotPassword: React.FC<{ onBackToLogin: () => void }> = ({ onBackToLogin
 
   if (emailSent) {
     return (
-      <Card className="w-full max-w-md animate-fade-in">
-        <CardHeader className="text-center space-y-4">
-          <div className="mx-auto w-16 h-16 bg-gradient-to-r from-finance-blue to-finance-green rounded-full flex items-center justify-center">
-            <span className="text-white font-bold text-2xl">✓</span>
+      <Card className="w-full max-w-md animate-fade-in shadow-2xl border-0 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm">
+        <CardHeader className="text-center space-y-6 pb-8">
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-brand-primary to-brand-secondary rounded-full blur-lg opacity-20 animate-pulse"></div>
+            <div className="relative mx-auto w-20 h-20 bg-gradient-to-r from-brand-primary to-brand-secondary rounded-full flex items-center justify-center shadow-lg ring-4 ring-brand-primary/20">
+              <span className="text-white font-bold text-3xl">✓</span>
+            </div>
           </div>
-          <CardTitle className="text-2xl font-bold text-gray-900 dark:text-white">
-            Email Inviata
-          </CardTitle>
-          <CardDescription className="text-gray-600 dark:text-gray-300">
-            Ti abbiamo inviato le istruzioni per resettare la password
-          </CardDescription>
+          <div className="space-y-2">
+            <CardTitle className="text-3xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
+              Email Inviata
+            </CardTitle>
+            <CardDescription className="text-brand-accent/80 dark:text-gray-300 font-medium">
+              Ti abbiamo inviato le istruzioni per resettare la password
+            </CardDescription>
+          </div>
         </CardHeader>
         
-        <CardContent>
-          <div className="space-y-4">
-            <p className="text-sm text-gray-600 dark:text-gray-300 text-center">
-              Controlla la tua casella email e segui le istruzioni per resettare la password.
-            </p>
+        <CardContent className="px-8 pb-8">
+          <div className="space-y-6">
+            <div className="text-center p-4 bg-brand-light/30 rounded-xl border border-brand-primary/20">
+              <p className="text-sm text-brand-accent dark:text-gray-300 font-medium">
+                📧 Controlla la tua casella email e segui le istruzioni per resettare la password.
+              </p>
+            </div>
             
             <Button 
               onClick={onBackToLogin}
               variant="outline"
-              className="w-full"
+              className="w-full h-12 border-brand-primary/30 text-brand-primary hover:bg-brand-light/50 hover:border-brand-primary/50 rounded-xl transition-all duration-300"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Torna al Login
@@ -77,48 +84,53 @@ const ForgotPassword: React.FC<{ onBackToLogin: () => void }> = ({ onBackToLogin
   }
 
   return (
-    <Card className="w-full max-w-md animate-fade-in">
-      <CardHeader className="text-center space-y-4">
-        <div className="mx-auto w-16 h-16 bg-gradient-to-r from-finance-blue to-finance-green rounded-full flex items-center justify-center">
-          <span className="text-white font-bold text-2xl">MV</span>
+    <Card className="w-full max-w-md animate-fade-in shadow-2xl border-0 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm">
+      <CardHeader className="text-center space-y-6 pb-8">
+        <div className="relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-brand-primary to-brand-secondary rounded-full blur-lg opacity-20 animate-pulse"></div>
+          <div className="relative mx-auto w-20 h-20 bg-gradient-to-r from-brand-primary to-brand-secondary rounded-full flex items-center justify-center shadow-lg ring-4 ring-brand-primary/20">
+            <span className="text-white font-bold text-2xl">🔑</span>
+          </div>
         </div>
-        <CardTitle className="text-2xl font-bold text-gray-900 dark:text-white">
-          Recupera Password
-        </CardTitle>
-        <CardDescription className="text-gray-600 dark:text-gray-300">
-          Inserisci la tua email per ricevere le istruzioni di reset
-        </CardDescription>
+        <div className="space-y-2">
+          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
+            Recupera Password
+          </CardTitle>
+          <CardDescription className="text-brand-accent/80 dark:text-gray-300 font-medium">
+            Inserisci la tua email per ricevere le istruzioni di reset
+          </CardDescription>
+        </div>
       </CardHeader>
       
-      <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+      <CardContent className="px-8 pb-8">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          <div className="space-y-3">
+            <Label htmlFor="email" className="text-brand-accent font-medium">Email</Label>
             <Input
               id="email"
               type="email"
               {...register('email')}
               aria-invalid={!!errors.email}
-              placeholder="Inserisci la tua email"
-              className="w-full"
+              placeholder="inserisci@email.com"
+              className="h-12 border-brand-primary/20 focus:border-brand-primary focus:ring-brand-primary/20 rounded-xl transition-all duration-300"
               required
             />
-            {errors.email && <p role="alert" className="text-red-500">{errors.email.message}</p>}
+            {errors.email && <p role="alert" className="text-red-500 text-sm font-medium">{errors.email.message}</p>}
           </div>
 
           <Button 
             type="submit" 
-            className="w-full bg-gradient-to-r from-finance-blue to-finance-green hover:from-finance-blue/90 hover:to-finance-green/90 text-white font-medium py-2 rounded-lg transition-all duration-200 transform hover:scale-105"
+            className="w-full h-12 bg-gradient-to-r from-brand-primary to-brand-secondary hover:from-brand-accent hover:to-brand-primary text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-[1.02] hover:shadow-lg shadow-brand-primary/25"
             disabled={isSubmitting || blocked}
           >
-            {blocked ? 'Bloccato. Riprova più tardi' : isSubmitting ? 'Invio...' : 'Invia Email di Reset'}
+            {blocked ? '🔒 Bloccato. Riprova più tardi' : isSubmitting ? '⏳ Invio...' : '📧 Invia Email di Reset'}
           </Button>
           
           <Button 
             type="button"
             onClick={onBackToLogin}
             variant="outline"
-            className="w-full"
+            className="w-full h-12 border-brand-primary/30 text-brand-primary hover:bg-brand-light/50 hover:border-brand-primary/50 rounded-xl transition-all duration-300"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Torna al Login

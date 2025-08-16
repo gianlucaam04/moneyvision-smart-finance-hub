@@ -138,7 +138,7 @@ const Transactions: React.FC = () => {
 
           <Dialog>
             <DialogTrigger asChild>
-              <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg">
+              <Button className="bg-gradient-to-r from-brand-primary to-brand-secondary hover:from-brand-primary/90 hover:to-brand-secondary/90 text-white shadow-lg">
                 <CirclePlus className="w-4 h-4 mr-2" />
                 Nuova Transazione
               </Button>
@@ -190,8 +190,8 @@ const Transactions: React.FC = () => {
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center space-x-3">
-                <div className="p-3 bg-blue-100 rounded-full">
-                  <Euro className="w-6 h-6 text-blue-600" />
+                <div className="p-3 bg-brand-light/30 rounded-full">
+                  <Euro className="w-6 h-6 text-brand-primary" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
@@ -372,7 +372,7 @@ const Transactions: React.FC = () => {
                           <Button 
                             variant="ghost" 
                             size="sm" 
-                            className="hover:bg-blue-100 hover:text-blue-600 p-2"
+                            className="hover:bg-brand-light/30 hover:text-brand-primary p-2"
                             onClick={() => {
                               setSelectedTransaction(transaction);
                               setEditOpen(true);

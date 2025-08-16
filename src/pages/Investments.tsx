@@ -13,7 +13,7 @@ const Investments = () => {
             <CardContent className="p-8 md:p-12 text-center space-y-6">
               {/* Icon principale con animazione */}
               <div className="relative">
-                <div className="mx-auto w-20 h-20 md:w-24 md:h-24 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
+                <div className="mx-auto w-20 h-20 md:w-24 md:h-24 bg-gradient-to-r from-brand-primary to-brand-secondary rounded-full flex items-center justify-center shadow-lg">
                   <Construction className="w-10 h-10 md:w-12 md:h-12 text-white animate-pulse" />
                 </div>
                 <div className="absolute -top-2 -right-2">
@@ -26,7 +26,7 @@ const Investments = () => {
 
               {/* Titolo principale */}
               <div className="space-y-3">
-                <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
                   💼 Investimenti
                 </h1>
                 <h2 className="text-xl md:text-2xl font-semibold text-gray-800 dark:text-gray-200">
@@ -48,7 +48,7 @@ const Investments = () => {
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Portfolio Tracking</span>
                   </div>
                   <div className="flex items-center gap-3 p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg backdrop-blur-sm">
-                    <Zap className="w-5 h-5 text-purple-500" />
+                    <Zap className="w-5 h-5 text-brand-secondary" />
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Analisi AI</span>
                   </div>
                 </div>

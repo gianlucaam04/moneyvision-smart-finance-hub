@@ -136,7 +136,7 @@ const Goals: React.FC = () => {
             <DialogTrigger asChild>
               <Button 
                 onClick={resetForm}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg"
+                className="bg-gradient-to-r from-brand-primary to-brand-secondary hover:from-brand-primary/90 hover:to-brand-secondary/90 text-white shadow-lg"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Nuovo Obiettivo
@@ -258,7 +258,7 @@ const Goals: React.FC = () => {
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center space-x-2">
-                  <Target className="w-5 h-5 text-blue-600" />
+                  <Target className="w-5 h-5 text-brand-primary" />
                   <div>
                     <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
                       Obiettivi Totali
@@ -290,7 +290,7 @@ const Goals: React.FC = () => {
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center space-x-2">
-                  <DollarSign className="w-5 h-5 text-purple-600" />
+                  <DollarSign className="w-5 h-5 text-brand-secondary" />
                   <div>
                     <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
                       Valore Totale

@@ -488,7 +488,7 @@ const Settings: React.FC = () => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <User className="w-5 h-5 text-blue-600" />
+                <User className="w-5 h-5 text-brand-primary" />
                 Profilo Utente
               </CardTitle>
               <CardDescription>
@@ -515,7 +515,7 @@ const Settings: React.FC = () => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Palette className="w-5 h-5 text-purple-600" />
+                <Palette className="w-5 h-5 text-brand-secondary" />
                 Preferenze App
               </CardTitle>
               <CardDescription>
@@ -609,7 +609,7 @@ const Settings: React.FC = () => {
           <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Database className="w-5 h-5 text-indigo-600" />
+                <Database className="w-5 h-5 text-brand-accent" />
                 Gestione Dati
               </CardTitle>
               <CardDescription>
@@ -635,7 +635,7 @@ const Settings: React.FC = () => {
                       className="mt-2"
                     />
                     {isImporting && (
-                      <p className="text-sm text-blue-600 mt-2">
+                      <p className="text-sm text-brand-primary mt-2">
                         ⏳ Importazione in corso...
                       </p>
                     )}

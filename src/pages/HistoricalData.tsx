@@ -71,7 +71,7 @@ const HistoricalData = () => {
               <Archive className="w-6 h-6 text-finance-blue" />
             </div>
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-finance-blue to-blue-600 bg-clip-text text-transparent">
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
                 Dati Storici
               </h1>
               <p className="text-gray-600 dark:text-gray-400 text-lg">

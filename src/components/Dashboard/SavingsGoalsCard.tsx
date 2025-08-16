@@ -31,7 +31,7 @@ const SavingsGoalsCard: React.FC = () => {
           variant="outline" 
           size="sm" 
           onClick={() => navigate('/goals')}
-          className="hover:bg-finance-green hover:text-white transition-colors duration-200"
+          className="hover:bg-brand-secondary hover:text-white transition-colors duration-200"
         >
           Gestisci
         </Button>

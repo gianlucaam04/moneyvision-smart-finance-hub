@@ -109,9 +109,9 @@ const HistoricalSummary: React.FC<HistoricalSummaryProps> = ({ data }) => {
             </span>
           </div>
 
-          <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+          <div className="flex items-center justify-between p-3 bg-brand-light/30 dark:bg-brand-primary/20 rounded-lg">
             <div className="flex items-center">
-              <Target className="w-5 h-5 text-blue-600 mr-2" />
+              <Target className="w-5 h-5 text-brand-primary mr-2" />
               <span className="font-medium">Bilancio Netto</span>
             </div>
             <span className={`text-xl font-bold ${
