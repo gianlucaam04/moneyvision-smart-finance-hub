@@ -1,7 +1,7 @@
 
 import type { FinnhubSearchResult, FinnhubQuote } from '@/types/investments';
 
-const API_KEY = 'd0hgbkhr01qv1u37bk10d0hgbkhr01qv1u37bk1g';
+const API_KEY = import.meta.env.VITE_FINNHUB_API_KEY as string | undefined;
 const BASE_URL = 'https://finnhub.io/api/v1';
 
 // Rate limiting: massimo 60 chiamate al minuto per il piano gratuito
@@ -24,6 +24,10 @@ export const finnhubApi = {
   // Cerca simboli/asset
   async searchSymbols(query: string): Promise<FinnhubSearchResult[]> {
     if (!query.trim()) return [];
+    if (!API_KEY) {
+      console.warn('VITE_FINNHUB_API_KEY mancante: impossibile cercare simboli su Finnhub');
+      return [];
+    }
     
     try {
       const response = await rateLimitedFetch(
@@ -50,6 +54,10 @@ export const finnhubApi = {
 
   // Ottieni quotazione corrente
   async getQuote(symbol: string): Promise<FinnhubQuote | null> {
+    if (!API_KEY) {
+      console.warn('VITE_FINNHUB_API_KEY mancante: impossibile ottenere quote Finnhub');
+      return null;
+    }
     try {
       const response = await rateLimitedFetch(
         `${BASE_URL}/quote?symbol=${encodeURIComponent(symbol)}&token=${API_KEY}`
@@ -85,6 +93,10 @@ export const finnhubApi = {
     const quotes: Record<string, FinnhubQuote> = {};
     
     if (symbols.length === 0) return quotes;
+    if (!API_KEY) {
+      console.warn('VITE_FINNHUB_API_KEY mancante: impossibile aggiornare quotazioni multiple');
+      return quotes;
+    }
     
     console.log(`Aggiornamento prezzi per ${symbols.length} asset...`);
     
@@ -117,8 +129,9 @@ export const finnhubApi = {
   // Verifica se l'API è disponibile
   async checkApiStatus(): Promise<boolean> {
     try {
+      if (!API_KEY) return false;
       const response = await rateLimitedFetch(`${BASE_URL}/search?q=AAPL&token=${API_KEY}`);
-      return response.status !== 403;
+      return response.ok && response.status !== 403;
     } catch {
       return false;
     }

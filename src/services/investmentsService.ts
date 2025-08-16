@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import type { Investment, InvestmentFormData } from '@/types/investments';
+import type { Investment, InvestmentFormData, DcaHistoryEntry } from '@/types/investments';
 import { finnhubApi } from './finnhubApi';
 
 export const investmentsService = {
@@ -26,12 +26,25 @@ export const investmentsService = {
       throw new Error('Utente non autenticato');
     }
 
+    const payload: Partial<Investment> = {
+      symbol: investmentData.symbol,
+      name: investmentData.name,
+      isin: investmentData.isin ?? null,
+      quantity: investmentData.quantity,
+      purchase_price: investmentData.purchase_price,
+      purchase_date: investmentData.purchase_date,
+      // campi PAC
+      dca_enabled: investmentData.dca_enabled ?? null,
+      dca_amount: investmentData.dca_amount ?? null,
+      dca_start_date: investmentData.dca_start_date ?? null,
+      dca_day_of_month: investmentData.dca_day_of_month ?? null,
+      dca_history: []
+    };
+
     const { data, error } = await supabase
       .from('investments')
-      .insert({
-        ...investmentData,
-        user_id: user.id
-      })
+      // Cast a any per consentire colonne opzionali aggiuntive lato TS
+      .insert({ ...(payload as any), user_id: user.id } as any)
       .select()
       .single();
 
@@ -41,6 +54,58 @@ export const investmentsService = {
     }
 
     return data;
+  },
+
+  // Registra una rata PAC (contributo) aggiornando quantità e prezzo medio
+  async addDcaContribution(
+    investmentId: string,
+    params: { amount: number; price: number; date: string; note?: string }
+  ): Promise<Investment> {
+    const { data: inv, error: fetchErr } = await supabase
+      .from('investments')
+      .select('*')
+      .eq('id', investmentId)
+      .single();
+    if (fetchErr || !inv) {
+      console.error('Impossibile trovare investimento', fetchErr);
+      throw new Error('Investimento non trovato');
+    }
+
+    const current: Investment = inv as unknown as Investment;
+
+    const oldQty = current.quantity || 0;
+    const oldAvg = current.purchase_price || 0;
+    const addQty = params.price > 0 ? params.amount / params.price : 0;
+    const newQty = oldQty + addQty;
+    const newAvg = newQty > 0 ? ((oldQty * oldAvg) + params.amount) / newQty : oldAvg;
+
+    const history: DcaHistoryEntry[] = Array.isArray(current.dca_history) ? (current.dca_history as DcaHistoryEntry[]) : [];
+    const entry: DcaHistoryEntry = {
+      date: params.date,
+      amount: params.amount,
+      price: params.price,
+      quantity: addQty,
+      note: params.note,
+    };
+    const updatedHistory = [...history, entry];
+
+    const { data: updated, error } = await supabase
+      .from('investments')
+      .update({
+        quantity: newQty,
+        purchase_price: newAvg,
+        dca_history: updatedHistory,
+      })
+      .eq('id', investmentId)
+      .select()
+      .single();
+
+    if (error || !updated) {
+      console.error('Errore nell\'aggiornare il contributo PAC:', error);
+      throw new Error('Impossibile registrare la rata PAC');
+    }
+
+    return updated as unknown as Investment;
   },
 
   // Aggiorna prezzi correnti con gestione errori migliorata
@@ -117,10 +182,11 @@ export const investmentsService = {
   },
 
   // Aggiorna investimento
-  async updateInvestment(id: string, data: Partial<InvestmentFormData>): Promise<Investment> {
+  async updateInvestment(id: string, data: Partial<Investment>): Promise<Investment> {
     const { data: updated, error } = await supabase
       .from('investments')
-      .update(data)
+      // consentiamo anche campi opzionali PAC/ISIN
+      .update(data as any)
       .eq('id', id)
       .select()
       .single();

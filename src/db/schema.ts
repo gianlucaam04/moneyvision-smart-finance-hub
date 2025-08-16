@@ -59,11 +59,20 @@ export type Investment = {
   user_id: string;
   symbol: string;
   name: string;
+  isin: string | null;
   quantity: number;
   purchase_price: number;
   purchase_date: string;
   current_price: number | null;
   change_percent: number | null;
+  // PAC/DCA fields (optional)
+  dca_enabled: boolean | null;
+  dca_amount: number | null;
+  dca_start_date: string | null;
+  dca_day_of_month: number | null;
+  next_reminder_at: string | null;
+  last_reminded_at: string | null;
+  dca_history: Json | null; // stored as JSONB array
   created_at: string;
   updated_at: string;
 };
@@ -73,7 +82,7 @@ export type Archive = {
   id: string;
   user_id: string;
   file_name: string;
-  file_data: any;
+  file_data: Json;
   archive_type: 'auto_archive' | 'import_archive';
   date_range_start: string;
   date_range_end: string;

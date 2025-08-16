@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { investmentsService } from '@/services/investmentsService';
 import type { Investment } from '@/types/investments';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 
 interface InvestmentsListProps {
   investments: Investment[];
@@ -21,6 +22,10 @@ const InvestmentsList: React.FC<InvestmentsListProps> = ({
 }) => {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [investmentToDelete, setInvestmentToDelete] = useState<{ id: string; symbol: string } | null>(null);
+  const [dcaOpenId, setDcaOpenId] = useState<string | null>(null);
+  const [dcaForm, setDcaForm] = useState<{ amount: string; price: string; date: string; note: string }>({
+    amount: '', price: '', date: new Date().toISOString().split('T')[0], note: ''
+  });
   // Helpers UI
   const getPnLClasses = (value: number) => value >= 0
     ? { bg: 'bg-green-50 dark:bg-green-900/20', text: 'text-green-600', border: 'border-green-200/60 dark:border-green-800/40' }
@@ -38,6 +43,35 @@ const InvestmentsList: React.FC<InvestmentsListProps> = ({
     } finally {
       setDeleteOpen(false);
       setInvestmentToDelete(null);
+    }
+  };
+
+  const openDcaDialog = (inv: Investment) => {
+    setDcaOpenId(inv.id);
+    setDcaForm({
+      amount: inv.dca_amount != null ? String(inv.dca_amount) : '',
+      price: inv.current_price != null ? String(inv.current_price) : '',
+      date: new Date().toISOString().split('T')[0],
+      note: ''
+    });
+  };
+
+  const submitDca = async () => {
+    if (!dcaOpenId) return;
+    const amount = parseFloat(dcaForm.amount);
+    const price = parseFloat(dcaForm.price);
+    const date = dcaForm.date;
+    if (!(amount > 0) || !(price > 0) || !date) {
+      toast.error('Compila importo, prezzo e data validi');
+      return;
+    }
+    try {
+      await investmentsService.addDcaContribution(dcaOpenId, { amount, price, date, note: dcaForm.note || undefined });
+      toast.success('Rata PAC registrata');
+      setDcaOpenId(null);
+      onInvestmentDeleted(); // riusa callback per ricaricare lista
+    } catch (e) {
+      toast.error('Errore nella registrazione della rata');
     }
   };
 
@@ -210,6 +244,65 @@ const InvestmentsList: React.FC<InvestmentsListProps> = ({
                     >
                       <TrendingUp size={16} />
                     </Button>
+                    {investment.dca_enabled && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openDcaDialog(investment)}
+                          className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 md:opacity-0 md:group-hover:opacity-100 transition-all duration-200 h-9 w-9 p-0"
+                          aria-label="Registra rata PAC"
+                        >
+                          <Calendar size={16} />
+                        </Button>
+                        <Dialog open={dcaOpenId === investment.id} onOpenChange={(v) => { if (!v) setDcaOpenId(null); }}>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Registra rata PAC — {investment.symbol}</DialogTitle>
+                              <DialogDescription>Inserisci i dettagli della rata da registrare.</DialogDescription>
+                            </DialogHeader>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <div className="text-xs text-gray-500 mb-1">Importo (€)</div>
+                                <Input
+                                  value={dcaForm.amount}
+                                  onChange={(e) => setDcaForm(f => ({ ...f, amount: e.target.value }))}
+                                  type="number" step="0.01" min="0"
+                                />
+                              </div>
+                              <div>
+                                <div className="text-xs text-gray-500 mb-1">Prezzo unitario</div>
+                                <Input
+                                  value={dcaForm.price}
+                                  onChange={(e) => setDcaForm(f => ({ ...f, price: e.target.value }))}
+                                  type="number" step="0.00000001" min="0"
+                                />
+                              </div>
+                              <div>
+                                <div className="text-xs text-gray-500 mb-1">Data</div>
+                                <Input
+                                  value={dcaForm.date}
+                                  onChange={(e) => setDcaForm(f => ({ ...f, date: e.target.value }))}
+                                  type="date"
+                                />
+                              </div>
+                              <div className="md:col-span-2">
+                                <div className="text-xs text-gray-500 mb-1">Nota (opzionale)</div>
+                                <Input
+                                  value={dcaForm.note}
+                                  onChange={(e) => setDcaForm(f => ({ ...f, note: e.target.value }))}
+                                  placeholder="Es. versamento mensile"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex justify-end gap-2 pt-2">
+                              <Button variant="outline" onClick={() => setDcaOpenId(null)}>Annulla</Button>
+                              <Button onClick={submitDca}>Registra</Button>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      </>
+                    )}
                     <Dialog open={deleteOpen && investmentToDelete?.id === investment.id} onOpenChange={(v) => {
                       if (!v) { setDeleteOpen(false); setInvestmentToDelete(null); }
                     }}>

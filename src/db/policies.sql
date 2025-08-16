@@ -4,6 +4,7 @@
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.savings_goals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.investments ENABLE ROW LEVEL SECURITY;
 
 -- Allow only owner (auth.uid) to perform any operation
 CREATE POLICY "Users can manage their transactions"
@@ -20,6 +21,12 @@ CREATE POLICY "Users can manage their categories"
 
 CREATE POLICY "Users can manage their savings_goals"
   ON public.savings_goals
+  FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can manage their investments"
+  ON public.investments
   FOR ALL
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);

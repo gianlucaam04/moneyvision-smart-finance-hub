@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { archivesService } from '@/services/archivesService';
 import { Progress } from '@/components/ui/progress';
+import { ensurePushSubscription } from '@/push/subscribePush';
 
 const Settings: React.FC = () => {
   const { user, updateUserPreferences, signOut } = useAuth();
@@ -72,6 +73,15 @@ const Settings: React.FC = () => {
             body: 'Notifiche abilitate con successo!',
             icon: '/favicon.ico'
           });
+          // prova a registrare la push subscription
+          if (user?.id) {
+            const ok = await ensurePushSubscription(user.id);
+            if (!ok) {
+              toast.message('Notifiche push non completamente configurate', {
+                description: 'Verifica che il browser supporti le push e che i permessi siano attivi.'
+              });
+            }
+          }
         } else {
           toast.error('Permessi di notifica negati. Abilitali dalle impostazioni del browser.');
           setPreferences({ ...preferences, notifications: false });
@@ -83,6 +93,15 @@ const Settings: React.FC = () => {
           body: 'Notifiche abilitate con successo!',
           icon: '/favicon.ico'
         });
+        // se già granted, assicura la push subscription
+        if (user?.id) {
+          const ok = await ensurePushSubscription(user.id);
+          if (!ok) {
+            toast.message('Notifiche push non completamente configurate', {
+              description: 'Verifica che il browser supporti le push e che i permessi siano attivi.'
+            });
+          }
+        }
       }
     } else {
       toast.info('Notifiche disabilitate.');
@@ -462,16 +481,7 @@ const Settings: React.FC = () => {
             </div>
           </div>
         )}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-              Impostazioni
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">
-              Configura le tue preferenze e gestisci i tuoi dati
-            </p>
-          </div>
-        </div>
+        <div className="flex items-center justify-between"></div>
 
         <div className="grid gap-8 lg:grid-cols-2">
           {/* Preferenze Utente */}
