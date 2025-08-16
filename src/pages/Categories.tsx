@@ -26,6 +26,9 @@ const Categories: React.FC = () => {
     budget: 0
   });
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
+  const [adding, setAdding] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -40,11 +43,18 @@ const Categories: React.FC = () => {
       toast.error('Il nome della categoria è obbligatorio.');
       return;
     }
-
-    await addCategory(formData);
-    toast.success('Categoria aggiunta con successo!');
-    setFormData({ name: '', color: '#7dd3fc', icon: 'CreditCard', type: 'expense', budget: 0 });
-    setOpen(false);
+    setAdding(true);
+    try {
+      await addCategory(formData);
+      toast.success('Categoria aggiunta con successo!');
+      setFormData({ name: '', color: '#7dd3fc', icon: 'CreditCard', type: 'expense', budget: 0 });
+      setOpen(false);
+    } catch (e) {
+      console.error(e);
+      toast.error('Errore durante l\'aggiunta della categoria');
+    } finally {
+      setAdding(false);
+    }
   };
 
   const handleEdit = (category: Category) => {
@@ -55,16 +65,31 @@ const Categories: React.FC = () => {
 
   const handleUpdate = async () => {
     if (!selectedCategory) return;
-
-    await updateCategory(selectedCategory.id, formData);
-    toast.success('Categoria aggiornata con successo!');
-    setEditOpen(false);
-    setSelectedCategory(null);
+    setUpdating(true);
+    try {
+      await updateCategory(selectedCategory.id, formData);
+      toast.success('Categoria aggiornata con successo!');
+      setEditOpen(false);
+      setSelectedCategory(null);
+    } catch (e) {
+      console.error(e);
+      toast.error('Errore durante l\'aggiornamento della categoria');
+    } finally {
+      setUpdating(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
-    await deleteCategory(id);
-    toast.success('Categoria eliminata con successo!');
+    setDeletingId(id);
+    try {
+      await deleteCategory(id);
+      toast.success('Categoria eliminata con successo!');
+    } catch (e) {
+      console.error(e);
+      toast.error('Errore durante l\'eliminazione della categoria');
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const filteredCategories = filterType === 'all'
@@ -134,7 +159,9 @@ const Categories: React.FC = () => {
                   <Input type="number" id="budget" name="budget" value={formData.budget} onChange={handleInputChange} className="col-span-3" />
                 </div>
               </div>
-              <Button onClick={handleSubmit}>Aggiungi</Button>
+              <Button onClick={handleSubmit} disabled={adding}>
+                {adding ? 'Aggiunta…' : 'Aggiungi'}
+              </Button>
             </DialogContent>
           </Dialog>
         </div>
@@ -172,15 +199,15 @@ const Categories: React.FC = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex justify-end space-x-2">
-                <Button variant="secondary" size="sm" onClick={() => handleEdit(category)}>
+                <Button variant="secondary" size="sm" onClick={() => handleEdit(category)} disabled={updating || deletingId === category.id}>
                   <Edit className="w-4 h-4 mr-2" />
                   Modifica
                 </Button>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="sm">
+                    <Button variant="destructive" size="sm" disabled={deletingId === category.id}>
                       <Trash2 className="w-4 h-4 mr-2" />
-                      Elimina
+                      {deletingId === category.id ? 'Eliminazione…' : 'Elimina'}
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
@@ -192,7 +219,9 @@ const Categories: React.FC = () => {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Annulla</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => handleDelete(category.id)}>Elimina</AlertDialogAction>
+                      <AlertDialogAction onClick={() => handleDelete(category.id)} disabled={deletingId === category.id}>
+                        {deletingId === category.id ? 'Eliminazione…' : 'Elimina'}
+                      </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
@@ -250,7 +279,9 @@ const Categories: React.FC = () => {
               <Input type="number" id="budget" name="budget" value={formData.budget} onChange={handleInputChange} className="col-span-3" />
             </div>
           </div>
-          <Button onClick={handleUpdate}>Aggiorna</Button>
+          <Button onClick={handleUpdate} disabled={updating}>
+            {updating ? 'Aggiornamento…' : 'Aggiorna'}
+          </Button>
         </DialogContent>
       </Dialog>
 
@@ -259,3 +290,4 @@ const Categories: React.FC = () => {
 };
 
 export default Categories;
+

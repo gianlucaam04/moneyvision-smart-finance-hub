@@ -142,16 +142,18 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return transactionDate.getMonth() === currentMonth && transactionDate.getFullYear() === currentYear;
     });
 
+    // Somma entrate come valori positivi
     const totalIncome = monthlyTransactions
       .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
+    // Somma uscite come valori assoluti (evita effetti di importi negativi)
     const totalExpenses = monthlyTransactions
       .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
     const balance = totalIncome - totalExpenses;
-    const budgetUsage = totalExpenses > 0 ? (totalExpenses / (totalIncome || 1)) * 100 : 0;
+    const budgetUsage = totalIncome > 0 ? (totalExpenses / totalIncome) * 100 : 0;
 
     let monthlyTrend: 'up' | 'down' | 'stable' = 'stable';
     if (balance > 0) monthlyTrend = 'up';

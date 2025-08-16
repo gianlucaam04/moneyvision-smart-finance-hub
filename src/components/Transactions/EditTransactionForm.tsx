@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { Transaction } from '@/types';
+import { toast } from 'sonner';
 
 interface EditTransactionFormProps {
   transaction: Transaction;
@@ -15,6 +16,7 @@ interface EditTransactionFormProps {
 
 const EditTransactionForm: React.FC<EditTransactionFormProps> = ({ transaction, onSuccess }) => {
   const { updateTransaction, categories } = useFinance();
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
   
   // Inizializza il form con i dati della transazione se disponibile
   const getInitialFormData = () => {
@@ -67,16 +69,25 @@ const EditTransactionForm: React.FC<EditTransactionFormProps> = ({ transaction, 
     const parsed = parseFloat(formData.amount);
     const amount = formData.type === 'expense' ? -Math.abs(parsed) : Math.abs(parsed);
 
-    await updateTransaction(transaction.id, {
-      amount,
-      description: formData.description,
-      category: formData.category,
-      type: formData.type,
-      date: formData.date,
-      note: formData.note || ''
-    });
+    setIsSubmitting(true);
+    try {
+      await updateTransaction(transaction.id, {
+        amount,
+        description: formData.description,
+        category: formData.category,
+        type: formData.type,
+        date: formData.date,
+        note: formData.note || ''
+      });
 
-    onSuccess?.();
+      toast.success('Transazione aggiornata');
+      onSuccess?.();
+    } catch (error) {
+      console.error('Failed to update transaction:', error);
+      toast.error('Errore durante l\'aggiornamento della transazione');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const availableCategories = categories.filter(cat => 
@@ -193,8 +204,9 @@ const EditTransactionForm: React.FC<EditTransactionFormProps> = ({ transaction, 
           <Button 
             type="submit" 
             className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium transition-all duration-200"
+            disabled={isSubmitting}
           >
-            Salva Modifiche
+            {isSubmitting ? 'Salvataggio…' : 'Salva Modifiche'}
           </Button>
         </form>
       </CardContent>

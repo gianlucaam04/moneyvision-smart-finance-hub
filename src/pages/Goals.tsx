@@ -28,6 +28,8 @@ const Goals: React.FC = () => {
     color: '#3b82f6',
     isCompleted: false
   });
+  const [isSaving, setIsSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const resetForm = () => {
     setFormData({
@@ -49,7 +51,7 @@ const Goals: React.FC = () => {
       toast.error('Per favore, compila tutti i campi obbligatori.');
       return;
     }
-
+    setIsSaving(true);
     try {
       if (editingGoalId) {
         await updateGoal(editingGoalId, formData);
@@ -58,12 +60,13 @@ const Goals: React.FC = () => {
         await addGoal(formData);
         toast.success('Obiettivo creato con successo!');
       }
-      
       setOpen(false);
       resetForm();
     } catch (error) {
       console.error('Error saving goal:', error);
       toast.error('Errore nel salvare l\'obiettivo');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -83,6 +86,7 @@ const Goals: React.FC = () => {
 
   const confirmDelete = async () => {
     if (!goalToDelete) return;
+    setDeletingId(goalToDelete.id);
     try {
       await deleteGoal(goalToDelete.id);
       toast.success('Obiettivo eliminato con successo!');
@@ -90,6 +94,7 @@ const Goals: React.FC = () => {
       console.error('Error deleting goal:', error);
       toast.error("Errore nell'eliminare l'obiettivo");
     } finally {
+      setDeletingId(null);
       setDeleteOpen(false);
       setGoalToDelete(null);
     }
@@ -235,10 +240,10 @@ const Goals: React.FC = () => {
                 </div>
                 
                 <div className="flex gap-2 pt-4">
-                  <Button type="submit" className="flex-1">
-                    {editingGoalId ? 'Aggiorna' : 'Crea'} Obiettivo
+                  <Button type="submit" className="flex-1" disabled={isSaving}>
+                    {isSaving ? (editingGoalId ? 'Aggiornamento…' : 'Creazione…') : `${editingGoalId ? 'Aggiorna' : 'Crea'} Obiettivo`}
                   </Button>
-                  <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                  <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isSaving}>
                     Annulla
                   </Button>
                 </div>

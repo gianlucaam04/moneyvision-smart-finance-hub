@@ -24,6 +24,7 @@ const Transactions: React.FC = () => {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [editOpen, setEditOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Aggiorna selectedTransaction quando le transazioni cambiano
   React.useEffect(() => {
@@ -109,8 +110,16 @@ const Transactions: React.FC = () => {
     .reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
   const handleDeleteTransaction = async (transaction: Transaction) => {
-    await deleteTransaction(transaction.id);
-    toast.success(`"${transaction.description}" è stata eliminata.`);
+    setDeletingId(transaction.id);
+    try {
+      await deleteTransaction(transaction.id);
+      toast.success(`"${transaction.description}" è stata eliminata.`);
+    } catch (error) {
+      console.error('Failed to delete transaction:', error);
+      toast.error('Errore durante l\'eliminazione della transazione');
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
@@ -368,6 +377,7 @@ const Transactions: React.FC = () => {
                               setSelectedTransaction(transaction);
                               setEditOpen(true);
                             }}
+                            disabled={deletingId === transaction.id}
                           >
                             <Edit className="w-4 h-4" />
                           </Button>
@@ -378,6 +388,7 @@ const Transactions: React.FC = () => {
                                 variant="ghost" 
                                 size="sm" 
                                 className="hover:bg-red-100 hover:text-red-600 p-2"
+                                disabled={deletingId === transaction.id}
                               >
                                 <Trash2 className="w-4 h-4" />
                               </Button>
@@ -391,7 +402,12 @@ const Transactions: React.FC = () => {
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Annulla</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDeleteTransaction(transaction)}>Elimina</AlertDialogAction>
+                                <AlertDialogAction 
+                                  onClick={() => handleDeleteTransaction(transaction)}
+                                  disabled={deletingId === transaction.id}
+                                >
+                                  {deletingId === transaction.id ? 'Eliminazione…' : 'Elimina'}
+                                </AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>

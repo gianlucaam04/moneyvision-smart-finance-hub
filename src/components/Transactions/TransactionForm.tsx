@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { toast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 interface TransactionFormProps {
   onSuccess?: () => void;
@@ -23,16 +23,13 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onSuccess }) => {
     date: new Date().toISOString().split('T')[0],
     note: ''
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.amount || !formData.description || !formData.category) {
-      toast({
-        title: "Errore",
-        description: "Compila tutti i campi obbligatori",
-        variant: "destructive",
-      });
+      toast.error('Compila tutti i campi obbligatori');
       return;
     }
 
@@ -40,27 +37,37 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onSuccess }) => {
       ? -Math.abs(parseFloat(formData.amount))
       : Math.abs(parseFloat(formData.amount));
 
-    await addTransaction({
-      amount,
-      description: formData.description,
-      category: formData.category,
-      type: formData.type,
-      date: formData.date,
-      note: formData.note || undefined
-    });
+    setIsSubmitting(true);
+    try {
+      await addTransaction({
+        amount,
+        description: formData.description,
+        category: formData.category,
+        type: formData.type,
+        date: formData.date,
+        note: formData.note || undefined
+      });
 
-    // Reset form
-    setFormData({
-      amount: '',
-      description: '',
-      category: '',
-      type: 'expense',
-      date: new Date().toISOString().split('T')[0],
-      note: ''
-    });
+      toast.success('Transazione aggiunta');
 
-    if (onSuccess) {
-      onSuccess();
+      // Reset form
+      setFormData({
+        amount: '',
+        description: '',
+        category: '',
+        type: 'expense',
+        date: new Date().toISOString().split('T')[0],
+        note: ''
+      });
+
+      if (onSuccess) {
+        onSuccess();
+      }
+    } catch (error) {
+      console.error('Failed to add transaction:', error);
+      toast.error('Errore durante l\'aggiunta della transazione');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -178,8 +185,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onSuccess }) => {
           <Button 
             type="submit" 
             className="w-full bg-gradient-to-r from-finance-blue to-finance-green hover:from-finance-blue/90 hover:to-finance-green/90 text-white font-medium transition-all duration-200"
+            disabled={isSubmitting}
           >
-            Aggiungi Transazione
+            {isSubmitting ? 'Aggiunta…' : 'Aggiungi Transazione'}
           </Button>
         </form>
       </CardContent>
@@ -188,3 +196,4 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onSuccess }) => {
 };
 
 export default TransactionForm;
+
