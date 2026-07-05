@@ -3,7 +3,8 @@ import React from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { FinanceProvider } from './contexts/FinanceContext';
-import Index from './pages/Index';
+import Landing from './pages/Landing';
+import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Transactions from './pages/Transactions';
 import Categories from './pages/Categories';
@@ -31,7 +32,8 @@ const App = () => {
             <PreferencesApplier />
             <Toaster />
           <Routes>
-            <Route path="/" element={<Index />} />
+            <Route path="/" element={<Landing />} />
+            <Route path="/login" element={<Login />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/dashboard" element={
               <PrivateRoute>
