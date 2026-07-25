@@ -4,11 +4,13 @@ import './index.css'
 
 createRoot(document.getElementById("root")!).render(<App />);
 
-// Register Service Worker for PWA + Push (in browsers only)
+// Il vecchio service worker della PWA va rimosso dai browser che l'hanno già
+// registrato, altrimenti continuerebbe a servire la app-shell dalla cache.
+// sw.js si auto-deregistra: qui lo registriamo un'ultima volta per attivarlo.
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch(() => {
-      // ignore registration errors
+      // ignora errori di registrazione
     });
   });
 }

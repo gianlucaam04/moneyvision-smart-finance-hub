@@ -2,15 +2,7 @@
   command = "npm run build"
   publish = "dist"
 
-[build.environment]
-  VITE_VAPID_PUBLIC_KEY = "BCw0ugAYnAnow4FHIxMfUHoE-ZhdHx8eFBkoI425WlG8q3SYWRSOaHvWg6oCK-ooq_FYbJpTCTJbV_I6o2nMIf0"
-
-# SPA fallback so client routing works on Netlify
-[[redirects]]
-  from = "/api/*"
-  to = "/api/:splat"
-  status = 200
-
+# Sito a pagina singola: ogni path serve la landing.
 [[redirects]]
   from = "/*"
   to = "/index.html"

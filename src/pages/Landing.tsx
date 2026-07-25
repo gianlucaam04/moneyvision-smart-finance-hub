@@ -1,5 +1,4 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
   Wallet,
@@ -74,17 +73,11 @@ const Landing: React.FC = () => {
             <span className="text-lg font-bold text-brand-primary">MoneyVision</span>
           </a>
           <nav className="flex items-center gap-2 sm:gap-3">
-            <a
-              href={`mailto:${CONTACT_EMAIL}`}
-              className="hidden rounded-lg px-3 py-2 text-sm font-medium text-brand-accent transition-colors hover:text-brand-primary dark:text-gray-300 sm:inline-block"
-            >
-              Contact
-            </a>
             <Button
               asChild
               className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white hover:from-brand-accent hover:to-brand-primary"
             >
-              <Link to="/login">Sign in</Link>
+              <a href={`mailto:${CONTACT_EMAIL}`}>Contact</a>
             </Button>
           </nav>
         </div>
@@ -96,14 +89,15 @@ const Landing: React.FC = () => {
           <div className="absolute inset-0 bg-gradient-to-br from-brand-light via-white to-brand-light/40 dark:from-gray-900 dark:via-gray-950 dark:to-gray-900" />
           <div className="relative mx-auto max-w-6xl px-4 py-20 text-center sm:px-6 sm:py-28">
             <span className="inline-flex items-center rounded-full border border-brand-primary/20 bg-white/70 px-4 py-1.5 text-sm font-medium text-brand-primary dark:bg-gray-900/70">
-              Smart financial tracking
+              iOS app coming soon
             </span>
             <h1 className="mx-auto mt-6 max-w-3xl text-4xl font-bold tracking-tight text-brand-accent dark:text-white sm:text-6xl">
               MoneyVision
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-lg text-brand-accent/80 dark:text-gray-300 sm:text-xl">
-              A smart financial tracking web app that helps you record expenses,
+              A smart financial tracker that helps you record expenses,
               understand your budget, and make clearer money decisions.
+              Now being rebuilt as a native iOS app.
             </p>
             <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Button
@@ -111,18 +105,10 @@ const Landing: React.FC = () => {
                 size="lg"
                 className="h-12 w-full bg-gradient-to-r from-brand-primary to-brand-secondary px-8 text-base text-white hover:from-brand-accent hover:to-brand-primary sm:w-auto"
               >
-                <Link to="/login">
-                  Open App
+                <a href={`mailto:${CONTACT_EMAIL}`}>
+                  Get in touch
                   <ArrowRight className="ml-2 h-5 w-5" />
-                </Link>
-              </Button>
-              <Button
-                asChild
-                size="lg"
-                variant="outline"
-                className="h-12 w-full border-brand-primary/30 px-8 text-base text-brand-primary hover:bg-brand-light/50 sm:w-auto"
-              >
-                <a href={`mailto:${CONTACT_EMAIL}`}>Contact</a>
+                </a>
               </Button>
             </div>
           </div>
@@ -236,12 +222,9 @@ const Landing: React.FC = () => {
                 <Mail className="h-4 w-4" aria-hidden="true" />
                 {CONTACT_EMAIL}
               </a>
-              <Link
-                to="/login"
-                className="text-sm font-medium text-brand-accent/80 hover:text-brand-primary dark:text-gray-300"
-              >
-                Sign in / Open App
-              </Link>
+              <span className="text-sm font-medium text-brand-accent/80 dark:text-gray-300">
+                iOS app coming soon
+              </span>
             </div>
           </div>
           <div className="mt-10 border-t border-brand-light pt-6 text-center text-sm text-brand-accent/60 dark:border-gray-800 dark:text-gray-500">
